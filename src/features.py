@@ -15,7 +15,11 @@ class FeatureExtractor:
     
     def __init__(self):
         """Initialize the feature extractor."""
-        pass
+        self.tfidf = TfidfVectorizer(
+            analyzer='char',
+            ngram_range=(3, 5),  # Character n-grams from size 3 to 5
+            max_features=1000
+        )
     
     def extract_ngrams(self, tokens: List[str], n: int) -> List[Tuple[str, ...]]:
         """
@@ -87,7 +91,8 @@ class FeatureExtractor:
                 'median_sentence_length': 0,
                 'std_sentence_length': 0,
                 'min_sentence_length': 0,
-                'max_sentence_length': 0
+                'max_sentence_length': 0,
+                'sentence_length_variance': 0
             }
             
         sentence_lengths = [len(sentence) for sentence in tokenized_sentences]
@@ -97,7 +102,8 @@ class FeatureExtractor:
             'median_sentence_length': float(np.median(sentence_lengths)),
             'std_sentence_length': float(np.std(sentence_lengths)),
             'min_sentence_length': float(min(sentence_lengths)),
-            'max_sentence_length': float(max(sentence_lengths))
+            'max_sentence_length': float(max(sentence_lengths)),
+            'sentence_length_variance': float(np.var(sentence_lengths))
         }
     
     def calculate_vocabulary_richness(self, tokens: List[str]) -> Dict[str, float]:
@@ -114,7 +120,12 @@ class FeatureExtractor:
             return {
                 'unique_tokens_ratio': 0,
                 'hapax_legomena_ratio': 0,
-                'yule_k': 0
+                'dis_legomena_ratio': 0,
+                'yule_k': 0,
+                'simpson_d': 0,
+                'herdan_c': 0,
+                'guiraud_r': 0,
+                'sichel_s': 0
             }
             
         # Number of tokens
@@ -126,61 +137,189 @@ class FeatureExtractor:
         # Frequency distribution
         freq_dist = Counter(tokens)
         
-        # Number of hapax legomena (words occurring exactly once)
+        # Hapax and dis legomena (words occurring once and twice)
         V1 = sum(1 for freq in freq_dist.values() if freq == 1)
+        V2 = sum(1 for freq in freq_dist.values() if freq == 2)
         
-        # Calculate Yule's K (a measure of vocabulary richness)
+        # Calculate Yule's K
         M1 = N
         M2 = sum(freq ** 2 for freq in freq_dist.values())
+        yule_k = 10000 * (M2 - M1) / (M1 ** 2) if N > 0 and M1 > 0 else 0
         
-        # Avoid division by zero
-        if N > 0 and M1 > 0:
-            yule_k = 10000 * (M2 - M1) / (M1 ** 2)
-        else:
-            yule_k = 0
+        # Simpson's D (probability that two randomly chosen words are the same)
+        simpson_d = sum((freq * (freq - 1)) / (N * (N - 1)) for freq in freq_dist.values()) if N > 1 else 0
+        
+        # Herdan's C (log vocabulary size / log tokens)
+        herdan_c = math.log(V) / math.log(N) if N > 0 and V > 0 else 0
+        
+        # Guiraud's R (vocabulary size / sqrt(tokens))
+        guiraud_r = V / math.sqrt(N) if N > 0 else 0
+        
+        # Sichel's S (proportion of dis legomena)
+        sichel_s = V2 / V if V > 0 else 0
             
         return {
             'unique_tokens_ratio': V / N if N > 0 else 0,
             'hapax_legomena_ratio': V1 / N if N > 0 else 0,
-            'yule_k': yule_k
+            'dis_legomena_ratio': V2 / N if N > 0 else 0,
+            'yule_k': yule_k,
+            'simpson_d': simpson_d,
+            'herdan_c': herdan_c,
+            'guiraud_r': guiraud_r,
+            'sichel_s': sichel_s
         }
     
     def calculate_word_position_features(self, tokenized_sentences: List[List[str]]) -> Dict[str, Dict[str, float]]:
         """
-        Calculate features related to word positions.
+        Calculate features related to word positions and sentence structure.
         
         Args:
             tokenized_sentences: List of tokenized sentences
             
         Returns:
-            Dictionary with word position features
+            Dictionary with word position and structural features
         """
         if not tokenized_sentences:
-            return {'sentence_positions': {}}
+            return {
+                'sentence_positions': {},
+                'sentence_complexity': {
+                    'avg_words_before_punct': 0,
+                    'punct_per_sentence': 0,
+                    'words_per_punct': 0
+                }
+            }
             
         # Calculate word positions in sentences
         sentence_positions = defaultdict(list)
+        words_before_punct = []
+        total_punct = 0
+        total_words = 0
         
         for sentence in tokenized_sentences:
             sentence_length = len(sentence)
             if sentence_length == 0:
                 continue
                 
+            # Track words and punctuation
+            word_count = 0
+            punct_count = 0
+            words_since_punct = 0
+            
             for i, token in enumerate(sentence):
-                # Calculate normalized position (0 to 1)
+                # Calculate normalized position
                 norm_position = i / (sentence_length - 1) if sentence_length > 1 else 0.5
                 sentence_positions[token].append(norm_position)
+                
+                # Count words and punctuation
+                if any(c.isalpha() for c in token):
+                    word_count += 1
+                    words_since_punct += 1
+                elif any(c in '.,;:!?' for c in token):
+                    punct_count += 1
+                    if words_since_punct > 0:
+                        words_before_punct.append(words_since_punct)
+                    words_since_punct = 0
+            
+            total_punct += punct_count
+            total_words += word_count
         
         # Calculate average position for each word
         avg_positions = {}
         for token, positions in sentence_positions.items():
             if positions:
                 avg_positions[token] = sum(positions) / len(positions)
+        
+        # Calculate sentence complexity metrics
+        avg_words_before_punct = (
+            np.mean(words_before_punct) if words_before_punct else 0
+        )
+        punct_per_sentence = total_punct / len(tokenized_sentences) if tokenized_sentences else 0
+        words_per_punct = total_words / total_punct if total_punct > 0 else 0
                 
         return {
-            'sentence_positions': avg_positions
+            'sentence_positions': avg_positions,
+            'sentence_complexity': {
+                'avg_words_before_punct': float(avg_words_before_punct),
+                'punct_per_sentence': float(punct_per_sentence),
+                'words_per_punct': float(words_per_punct)
+            }
         }
         
+    def analyze_transition_patterns(self, tokenized_sentences: List[List[str]]) -> Dict[str, float]:
+        """
+        Analyze patterns in how sentences and clauses transition between each other.
+        This captures the flow and rhythm of writing without considering specific content.
+        
+        Args:
+            tokenized_sentences: List of tokenized sentences
+            
+        Returns:
+            Dictionary with transition pattern features
+        """
+        if not tokenized_sentences:
+            return {
+                'length_transition_smoothness': 0,
+                'length_pattern_repetition': 0,
+                'clause_boundary_regularity': 0,
+                'sentence_rhythm_consistency': 0
+            }
+
+        # Calculate sentence length transitions
+        length_diffs = []
+        length_patterns = []
+        clause_positions = []
+        rhythm_patterns = []
+
+        for i, sentence in enumerate(tokenized_sentences):
+            # Get sentence length
+            current_length = len(sentence)
+            length_patterns.append(current_length)
+
+            # Calculate length transition if not first sentence
+            if i > 0:
+                prev_length = len(tokenized_sentences[i-1])
+                length_diffs.append(abs(current_length - prev_length))
+
+            # Identify potential clause boundaries using punctuation
+            clause_positions.extend([
+                j/current_length for j, token in enumerate(sentence)
+                if any(p in token for p in [',', ';', ':', '.'])
+            ])
+
+            # Create rhythm pattern based on token lengths
+            rhythm = [len(token) for token in sentence]
+            if rhythm:
+                rhythm_patterns.append(np.std(rhythm))
+
+        features = {}
+
+        # Measure how smoothly sentence lengths transition (lower value = smoother)
+        features['length_transition_smoothness'] = (
+            float(np.std(length_diffs)) if length_diffs else 0
+        )
+
+        # Measure repetition in sentence length patterns
+        if len(length_patterns) > 1:
+            # Use autocorrelation to detect patterns
+            autocorr = np.correlate(length_patterns, length_patterns, mode='full')
+            features['length_pattern_repetition'] = float(
+                np.max(autocorr[len(autocorr)//2+1:]) / autocorr[len(autocorr)//2]
+            )
+        else:
+            features['length_pattern_repetition'] = 0
+
+        # Measure regularity of clause boundaries
+        features['clause_boundary_regularity'] = float(
+            np.std(clause_positions) if clause_positions else 0
+        )
+
+        # Measure consistency in sentence rhythm
+        features['sentence_rhythm_consistency'] = float(
+            np.std(rhythm_patterns) if rhythm_patterns else 0
+        )
+
+        return features
+
     def extract_all_features(self, preprocessed_text: Dict) -> Dict:
         """
         Extract all linguistic features from preprocessed text.
@@ -193,6 +332,7 @@ class FeatureExtractor:
         """
         words = preprocessed_text['words']
         tokenized_sentences = preprocessed_text['tokenized_sentences']
+        normalized_text = preprocessed_text.get('normalized_text', ' '.join(words))
         
         # Extract various features
         features = {}
@@ -200,17 +340,26 @@ class FeatureExtractor:
         # Word frequency distribution
         features['word_frequencies'] = self.calculate_frequency_distribution(words)
         
-        # N-gram frequencies
-        features['bigram_frequencies'] = self.calculate_ngram_frequency(words, n=2)
-        features['trigram_frequencies'] = self.calculate_ngram_frequency(words, n=3)
+        # N-gram frequencies (both word and character level)
+        features['word_bigrams'] = self.calculate_ngram_frequency(words, n=2)
+        features['word_trigrams'] = self.calculate_ngram_frequency(words, n=3)
+        features['char_ngrams'] = dict(zip(
+            self.tfidf.get_feature_names_out(),
+            self.tfidf.fit_transform([normalized_text]).toarray()[0]
+        ))
         
-        # Sentence length statistics
+        # Sentence length and structure statistics
         features['sentence_stats'] = self.calculate_sentence_length_stats(tokenized_sentences)
         
-        # Vocabulary richness
+        # Vocabulary richness metrics
         features['vocabulary_richness'] = self.calculate_vocabulary_richness(words)
         
-        # Word position features
-        features['word_positions'] = self.calculate_word_position_features(tokenized_sentences)
+        # Word position and sentence complexity features
+        position_features = self.calculate_word_position_features(tokenized_sentences)
+        features['word_positions'] = position_features['sentence_positions']
+        features['sentence_complexity'] = position_features['sentence_complexity']
+
+        # Transition pattern analysis
+        features['transition_patterns'] = self.analyze_transition_patterns(tokenized_sentences)
         
         return features 
