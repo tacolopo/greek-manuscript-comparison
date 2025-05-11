@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import networkx as nx
 from pyvis.network import Network
+from tabulate import tabulate
 
 from preprocessing import GreekTextPreprocessor
 from features import FeatureExtractor
@@ -274,35 +275,27 @@ class MultipleManuscriptComparison:
     
     def visualize_similarity_heatmap(self, 
                                     similarity_df: pd.DataFrame, 
-                                    title: str = 'Manuscript Similarity Heatmap',
-                                    filename: str = 'manuscript_similarity_heatmap.png') -> None:
-        """
-        Create a heatmap of the similarity matrix.
-        
-        Args:
-            similarity_df: DataFrame with similarity matrix
-            title: Plot title
-            filename: Output filename
-        """
+                                    clustering_result: Dict) -> None:
+        """Create enhanced similarity heatmap."""
         plt.figure(figsize=(12, 10))
         
-        # Create heatmap
-        sns.heatmap(similarity_df, 
-                   annot=True, 
-                   cmap='viridis', 
-                   linewidths=0.5,
-                   vmin=0, 
-                   vmax=1)
+        # Create clustered heatmap
+        linkage = hierarchy.linkage(similarity_df, method='average')
+        sns.clustermap(similarity_df,
+                      cmap='viridis',
+                      annot=True,
+                      fmt='.2f',
+                      row_linkage=linkage,
+                      col_linkage=linkage,
+                      figsize=(15, 15))
         
-        plt.title(title, fontsize=16)
+        plt.title("Manuscript Similarity Heatmap (Clustered)", pad=20)
         plt.tight_layout()
         
         # Save figure
-        output_path = os.path.join(self.visualizations_dir, filename)
-        plt.savefig(output_path)
+        output_path = os.path.join(self.visualizations_dir, 'similarity_heatmap.png')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close()
-        
-        print(f"Saved similarity heatmap to {output_path}")
     
     def visualize_clustering(self, 
                             clustering_result: Dict[str, Any],
@@ -571,59 +564,180 @@ class MultipleManuscriptComparison:
         
         print(f"Saved clustering report to {output_path}")
     
-    def compare_multiple_manuscripts(self, 
-                                    manuscript_paths: List[str], 
-                                    manuscript_names: Optional[List[str]] = None,
-                                    n_clusters: int = 3,
-                                    clustering_method: str = 'hierarchical',
-                                    similarity_threshold: float = 0.5) -> Dict[str, Any]:
+    def generate_summary_table(self, 
+                             features_data: Dict[str, Dict],
+                             similarity_df: pd.DataFrame,
+                             clustering_result: Dict) -> str:
         """
-        Run the complete pipeline for comparing multiple manuscripts.
+        Generate a summary table of the analysis results.
         
         Args:
-            manuscript_paths: List of paths to manuscript files
-            manuscript_names: Optional list of names for the manuscripts
-            n_clusters: Number of clusters to create
-            clustering_method: Clustering method ('kmeans', 'hierarchical', 'dbscan')
-            similarity_threshold: Threshold for similarity network visualization
+            features_data: Dictionary of extracted features
+            similarity_df: Similarity matrix
+            clustering_result: Clustering results
             
         Returns:
-            Dictionary with all results
+            Formatted table string
         """
-        # 1. Preprocess manuscripts
-        print(f"Processing {len(manuscript_paths)} manuscripts...")
-        preprocessed_data = self.preprocess_manuscripts(manuscript_paths, manuscript_names)
+        # Prepare summary data
+        summary_data = []
+        manuscript_names = list(features_data.keys())
+        labels = clustering_result['labels']
         
-        # 2. Extract features
-        print("Extracting features from manuscripts...")
-        features_data = self.extract_features(preprocessed_data)
+        for i, name in enumerate(manuscript_names):
+            features = features_data[name]
+            
+            # Calculate average similarity with other manuscripts
+            similarities = similarity_df.loc[name].drop(name)
+            avg_similarity = similarities.mean()
+            
+            # Get key metrics
+            vocab_richness = features['vocabulary_richness']
+            sentence_stats = features['sentence_stats']
+            transition_patterns = features['transition_patterns']
+            
+            summary_data.append([
+                name,  # Manuscript name
+                f"Cluster {labels[i]}",  # Cluster assignment
+                f"{avg_similarity:.3f}",  # Average similarity
+                f"{vocab_richness['unique_tokens_ratio']:.3f}",  # Vocabulary richness
+                f"{sentence_stats['mean_sentence_length']:.1f}",  # Avg sentence length
+                f"{transition_patterns['length_transition_smoothness']:.3f}",  # Style consistency
+                f"{vocab_richness['hapax_ratio']:.3f}",  # Unique word usage
+                f"{transition_patterns['sentence_rhythm_consistency']:.3f}"  # Writing rhythm
+            ])
         
-        # 3. Calculate similarity matrix
-        print("Calculating similarity matrix...")
-        similarity_df = self.calculate_similarity_matrix(features_data, preprocessed_data)
+        # Create table with headers
+        headers = [
+            "Manuscript",
+            "Cluster",
+            "Avg Similarity",
+            "Vocab Richness",
+            "Avg Sent Length",
+            "Style Consistency",
+            "Unique Words",
+            "Writing Rhythm"
+        ]
         
-        # 4. Cluster manuscripts
-        print(f"Clustering manuscripts using {clustering_method}...")
+        return tabulate(summary_data, headers=headers, tablefmt="grid")
+    
+    def generate_cluster_summary(self, clustering_result: Dict) -> str:
+        """
+        Generate a summary of the clustering results.
+        
+        Args:
+            clustering_result: Clustering results
+            
+        Returns:
+            Formatted table string
+        """
+        # Group manuscripts by cluster
+        clusters = {}
+        for i, label in enumerate(clustering_result['labels']):
+            if label not in clusters:
+                clusters[label] = []
+            clusters[label].append(clustering_result['manuscript_names'][i])
+        
+        # Prepare cluster summary
+        summary_data = []
+        for cluster_id in sorted(clusters.keys()):
+            members = clusters[cluster_id]
+            summary_data.append([
+                f"Cluster {cluster_id}",
+                len(members),
+                ", ".join(members)
+            ])
+        
+        headers = ["Cluster", "Size", "Members"]
+        return tabulate(summary_data, headers=headers, tablefmt="grid")
+    
+    def visualize_feature_distributions(self, features_data: Dict[str, Dict]) -> None:
+        """Create feature distribution plots."""
+        # Extract key metrics for visualization
+        metrics = {
+            'Vocabulary Richness': [d['vocabulary_richness']['unique_tokens_ratio'] for d in features_data.values()],
+            'Sentence Length': [d['sentence_stats']['mean_sentence_length'] for d in features_data.values()],
+            'Style Consistency': [d['transition_patterns']['length_transition_smoothness'] for d in features_data.values()],
+            'Writing Rhythm': [d['transition_patterns']['sentence_rhythm_consistency'] for d in features_data.values()]
+        }
+        
+        # Create distribution plots
+        fig, axes = plt.subplots(2, 2, figsize=(15, 15))
+        fig.suptitle('Distribution of Key Stylometric Features', fontsize=16)
+        
+        for (title, values), ax in zip(metrics.items(), axes.flat):
+            sns.histplot(values, ax=ax, kde=True)
+            ax.set_title(title)
+            ax.set_xlabel('Value')
+            ax.set_ylabel('Count')
+        
+        plt.tight_layout()
+        output_path = os.path.join(self.visualizations_dir, 'feature_distributions.png')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        plt.close()
+    
+    def compare_multiple_manuscripts(self,
+                                   manuscript_paths: List[str],
+                                   manuscript_names: Optional[List[str]] = None,
+                                   n_clusters: int = 3,
+                                   clustering_method: str = 'hierarchical',
+                                   similarity_threshold: float = 0.5) -> Dict[str, Any]:
+        """Run the complete comparison pipeline."""
+        # Process manuscripts and extract features
+        print("Processing manuscripts and extracting features...")
+        preprocessed_data = {}
+        features_data = {}
+        
+        for i, path in enumerate(manuscript_paths):
+            name = manuscript_names[i] if manuscript_names else f"Manuscript_{i+1}"
+            preprocessed = self.preprocessor.preprocess_file(path)
+            features = self.feature_extractor.extract_all_features(preprocessed)
+            
+            preprocessed_data[name] = preprocessed
+            features_data[name] = features
+        
+        # Calculate similarity matrix
+        print("Calculating similarities...")
+        similarity_df = self.similarity_calculator.calculate_similarity_matrix(features_data)
+        
+        # Perform clustering
+        print("Performing clustering analysis...")
         clustering_result = self.cluster_manuscripts(
-            similarity_df, 
+            similarity_df,
             n_clusters=n_clusters,
             method=clustering_method
         )
         
-        # 5. Generate visualizations
+        # Generate visualizations
         print("Generating visualizations...")
-        self.visualize_similarity_heatmap(similarity_df)
-        self.visualize_clustering(clustering_result)
+        self.visualize_similarity_heatmap(similarity_df, clustering_result)
+        self.visualize_feature_distributions(features_data)
         self.visualize_similarity_network(similarity_df, threshold=similarity_threshold)
         
-        # 6. Generate reports
-        print("Generating reports...")
-        self.generate_cluster_report(clustering_result, preprocessed_data, features_data)
+        # Generate summary tables
+        print("Generating summary reports...")
+        summary_table = self.generate_summary_table(features_data, similarity_df, clustering_result)
+        cluster_summary = self.generate_cluster_summary(clustering_result)
         
-        # Return all results
+        # Save summaries to files
+        with open(os.path.join(self.output_dir, 'analysis_summary.txt'), 'w') as f:
+            f.write("MANUSCRIPT ANALYSIS SUMMARY\n")
+            f.write("=========================\n\n")
+            f.write("Detailed Results:\n")
+            f.write(summary_table)
+            f.write("\n\n")
+            f.write("Cluster Analysis:\n")
+            f.write(cluster_summary)
+        
+        print("\nAnalysis complete! Results saved to:")
+        print(f"- Summary tables: {self.output_dir}/analysis_summary.txt")
+        print(f"- Visualizations: {self.visualizations_dir}/")
+        
         return {
             'preprocessed_data': preprocessed_data,
             'features_data': features_data,
             'similarity_matrix': similarity_df,
-            'clustering_result': clustering_result
+            'clustering_result': clustering_result,
+            'summary_table': summary_table,
+            'cluster_summary': cluster_summary
         } 
