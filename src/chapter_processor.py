@@ -11,7 +11,7 @@ def parse_filename(filename: str) -> Tuple[str, str, str, str]:
     """
     Parse a chapter filename to extract manuscript info.
     Expected format: path/to/grcsbl_XXX_BBB_CC_read.txt
-    where XXX is the manuscript number, BBB is the book code (ROM, 1CO, 2CO, etc.), CC is the chapter
+    where XXX is the manuscript number, BBB is the book code, CC is the chapter
     
     Args:
         filename: Name of the chapter file
@@ -19,8 +19,9 @@ def parse_filename(filename: str) -> Tuple[str, str, str, str]:
     Returns:
         Tuple of (manuscript_id, book_code, chapter_num, full_path)
     """
-    # Define valid Pauline letter codes
-    VALID_BOOKS = r'(?:ROM|1CO|2CO|GAL|EPH|PHP|COL|1TH|2TH|1TI|2TI|TIT|PHM)'
+    # Define valid NT book codes
+    VALID_BOOKS = r'(?:ROM|1CO|2CO|GAL|EPH|PHP|COL|1TH|2TH|1TI|2TI|TIT|PHM|' + \
+                 r'ACT|JHN|1JN|2JN|3JN|1PE|2PE|JUD|REV|JAS|HEB|MAT|MRK|LUK)'
     
     # Extract components using regex - allow for full path
     pattern = rf'.*?grcsbl_(\d+)_({VALID_BOOKS})_(\d+)_read\.txt$'

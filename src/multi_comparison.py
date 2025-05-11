@@ -19,6 +19,7 @@ import seaborn as sns
 import networkx as nx
 from pyvis.network import Network
 from tabulate import tabulate
+from sklearn.metrics import silhouette_score
 
 from .preprocessing import GreekTextPreprocessor
 from .features import FeatureExtractor
@@ -262,37 +263,69 @@ class MultipleManuscriptComparison:
         manuscript_names = clustering_result['manuscript_names']
         method = clustering_result['clustering_method']
         
-        # Add descriptive labels for Pauline letters
-        letter_labels = {}
+        # Use display names for visualization
+        display_labels = {}
         for name in manuscript_names:
-            if "ROM" in name:
-                letter_labels[name] = "Romans"
-            elif "1CO" in name:
-                letter_labels[name] = "1 Corinthians"
-            elif "2CO" in name:
-                letter_labels[name] = "2 Corinthians"
-            elif "GAL" in name:
-                letter_labels[name] = "Galatians"
-            elif "EPH" in name:
-                letter_labels[name] = "Ephesians"
-            elif "PHP" in name:
-                letter_labels[name] = "Philippians"
-            elif "COL" in name:
-                letter_labels[name] = "Colossians"
-            elif "1TH" in name:
-                letter_labels[name] = "1 Thessalonians"
-            elif "2TH" in name:
-                letter_labels[name] = "2 Thessalonians"
-            elif "1TI" in name:
-                letter_labels[name] = "1 Timothy"
-            elif "2TI" in name:
-                letter_labels[name] = "2 Timothy"
-            elif "TIT" in name:
-                letter_labels[name] = "Titus"
-            elif "PHM" in name:
-                letter_labels[name] = "Philemon"
+            if hasattr(self, 'display_names') and name in self.display_names:
+                display_labels[name] = self.display_names[name]
             else:
-                letter_labels[name] = name
+                # Fall back to letter-based names if none are provided
+                if "ROM" in name:
+                    display_labels[name] = "Romans"
+                elif "1CO" in name:
+                    display_labels[name] = "1 Corinthians"
+                elif "2CO" in name:
+                    display_labels[name] = "2 Corinthians"
+                elif "GAL" in name:
+                    display_labels[name] = "Galatians"
+                elif "EPH" in name:
+                    display_labels[name] = "Ephesians"
+                elif "PHP" in name:
+                    display_labels[name] = "Philippians"
+                elif "COL" in name:
+                    display_labels[name] = "Colossians"
+                elif "1TH" in name:
+                    display_labels[name] = "1 Thessalonians"
+                elif "2TH" in name:
+                    display_labels[name] = "2 Thessalonians"
+                elif "1TI" in name:
+                    display_labels[name] = "1 Timothy"
+                elif "2TI" in name:
+                    display_labels[name] = "2 Timothy"
+                elif "TIT" in name:
+                    display_labels[name] = "Titus"
+                elif "PHM" in name:
+                    display_labels[name] = "Philemon"
+                elif "HEB" in name:
+                    display_labels[name] = "Hebrews"
+                elif "JAS" in name:
+                    display_labels[name] = "James"
+                elif "1PE" in name:
+                    display_labels[name] = "1 Peter"
+                elif "2PE" in name:
+                    display_labels[name] = "2 Peter"
+                elif "1JN" in name:
+                    display_labels[name] = "1 John"
+                elif "2JN" in name:
+                    display_labels[name] = "2 John"
+                elif "3JN" in name:
+                    display_labels[name] = "3 John"
+                elif "JUD" in name:
+                    display_labels[name] = "Jude"
+                elif "REV" in name:
+                    display_labels[name] = "Revelation"
+                elif "MAT" in name:
+                    display_labels[name] = "Matthew"
+                elif "MRK" in name:
+                    display_labels[name] = "Mark"
+                elif "LUK" in name:
+                    display_labels[name] = "Luke"
+                elif "JHN" in name:
+                    display_labels[name] = "John"
+                elif "ACT" in name:
+                    display_labels[name] = "Acts"
+                else:
+                    display_labels[name] = name
         
         # Plot MDS visualization
         plt.figure(figsize=(12, 10))
@@ -316,14 +349,14 @@ class MultipleManuscriptComparison:
         # Add manuscript names as labels
         for i, name in enumerate(manuscript_names):
             plt.annotate(
-                letter_labels[name], 
+                display_labels[name], 
                 (coordinates[i, 0], coordinates[i, 1]),
                 fontsize=12,
                 font='serif',
                 weight='bold'
             )
             
-        plt.title(f'Pauline Letters Stylometric Analysis (MDS) - {method.upper()}', fontsize=16)
+        plt.title(f'New Testament Stylometric Analysis (MDS) - {method.upper()}', fontsize=16)
         plt.legend(fontsize=12)
         plt.grid(alpha=0.3)
         plt.tight_layout()
@@ -349,14 +382,14 @@ class MultipleManuscriptComparison:
         # Add manuscript names as labels
         for i, name in enumerate(manuscript_names):
             plt.annotate(
-                letter_labels[name], 
+                display_labels[name], 
                 (coordinates_tsne[i, 0], coordinates_tsne[i, 1]),
                 fontsize=12,
                 font='serif',
                 weight='bold'
             )
             
-        plt.title(f'Pauline Letters Stylometric Analysis (t-SNE) - {method.upper()}', fontsize=16)
+        plt.title(f'New Testament Stylometric Analysis (t-SNE) - {method.upper()}', fontsize=16)
         plt.legend(fontsize=12)
         plt.grid(alpha=0.3)
         plt.tight_layout()
@@ -370,8 +403,8 @@ class MultipleManuscriptComparison:
         
         # Rename the index and columns with full letter names
         similarity_df_renamed = similarity_df.copy()
-        similarity_df_renamed.index = [letter_labels[name] for name in similarity_df.index]
-        similarity_df_renamed.columns = [letter_labels[name] for name in similarity_df.columns]
+        similarity_df_renamed.index = [display_labels[name] for name in similarity_df.index]
+        similarity_df_renamed.columns = [display_labels[name] for name in similarity_df.columns]
         
         # Create a mask for the upper triangle to avoid redundancy
         mask = np.zeros_like(similarity_df_renamed.values, dtype=bool)
@@ -390,7 +423,7 @@ class MultipleManuscriptComparison:
             annot_kws={"size": 10}
         )
         
-        plt.title('Pauline Letters Similarity Heatmap', fontsize=16)
+        plt.title('Manuscript Similarity Heatmap', fontsize=16)
         plt.tight_layout()
         
         heatmap_path = os.path.join(self.visualizations_dir, 'similarity_heatmap.png')
@@ -418,8 +451,8 @@ class MultipleManuscriptComparison:
             # Add the node with label, title, and color
             net.add_node(
                 name, 
-                label=letter_labels[name], 
-                title=f"{letter_labels[name]} (Cluster {cluster_id})", 
+                label=display_labels[name], 
+                title=f"{display_labels[name]} (Cluster {cluster_id})", 
                 color=color,
                 size=40,
                 font={'size': 18, 'face': 'serif', 'color': 'black'}
@@ -861,27 +894,108 @@ class MultipleManuscriptComparison:
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close()
     
+    def determine_optimal_clusters(self, similarity_df: pd.DataFrame, max_clusters: int = 15) -> int:
+        """
+        Determine the optimal number of clusters using silhouette analysis.
+        
+        Args:
+            similarity_df: DataFrame with similarity matrix
+            max_clusters: Maximum number of clusters to try
+            
+        Returns:
+            Optimal number of clusters
+        """
+        # Convert similarity matrix to distance matrix (1 - similarity)
+        distance_matrix = 1 - similarity_df.values
+        
+        # Ensure the distance matrix is valid (no negative values)
+        distance_matrix = np.maximum(distance_matrix, 0)
+        
+        # Try different numbers of clusters
+        silhouette_scores = []
+        n_samples = len(similarity_df)
+        cluster_range = range(2, min(max_clusters + 1, n_samples))
+        
+        for n_clusters in cluster_range:
+            # Skip if we have too few samples
+            if n_clusters >= n_samples:
+                continue
+            
+            # Perform clustering
+            clusterer = AgglomerativeClustering(
+                n_clusters=n_clusters,
+                metric='precomputed',
+                linkage='average'
+            )
+            cluster_labels = clusterer.fit_predict(distance_matrix)
+            
+            # Calculate silhouette score
+            if len(set(cluster_labels)) > 1:  # Need at least 2 clusters for silhouette
+                score = silhouette_score(distance_matrix, cluster_labels, metric='precomputed')
+                silhouette_scores.append(score)
+            else:
+                silhouette_scores.append(0)
+        
+        # Get optimal number of clusters
+        optimal_n_clusters = list(cluster_range)[np.argmax(silhouette_scores)]
+        
+        # Plot silhouette scores
+        plt.figure(figsize=(12, 8))
+        plt.plot(list(cluster_range), silhouette_scores, 'bo-', linewidth=2.5)
+        plt.xlabel('Number of Clusters', fontsize=14)
+        plt.ylabel('Silhouette Score', fontsize=14)
+        plt.title('Silhouette Score vs Number of Clusters', fontsize=16)
+        plt.grid(True, alpha=0.3)
+        plt.xticks(list(cluster_range))
+        
+        # Add labels at data points
+        for i, score in enumerate(silhouette_scores):
+            plt.annotate(f"{score:.3f}", 
+                        (list(cluster_range)[i], score),
+                        textcoords="offset points",
+                        xytext=(0,10), 
+                        ha='center')
+        
+        # Highlight optimal number
+        plt.axvline(x=optimal_n_clusters, color='r', linestyle='--', alpha=0.5)
+        plt.annotate(f"Optimal: {optimal_n_clusters} clusters",
+                    xy=(optimal_n_clusters, max(silhouette_scores)),
+                    xytext=(optimal_n_clusters + 1, max(silhouette_scores) - 0.05),
+                    arrowprops=dict(facecolor='red', shrink=0.05),
+                    fontsize=12)
+        
+        plt.tight_layout()
+        plt.savefig(os.path.join(self.visualizations_dir, 'silhouette_analysis.png'), dpi=300)
+        plt.close()
+        
+        return optimal_n_clusters
+    
     def compare_multiple_manuscripts(self, manuscripts: Dict[str, str], 
+                                   display_names: Dict[str, str] = None,
                                    method: str = 'hierarchical',
-                                   n_clusters: int = 3,
+                                   n_clusters: Optional[int] = None,
                                    min_samples: int = 2,
                                    eps: float = 0.5,
                                    use_advanced_nlp: bool = False) -> Dict[str, Any]:
         """
-        Compare multiple manuscripts and analyze their relationships.
+        Compare multiple manuscripts and perform clustering analysis.
         
         Args:
-            manuscripts: Dictionary mapping manuscript IDs to their texts
-            method: Clustering method ('hierarchical', 'kmeans', or 'dbscan')
-            n_clusters: Number of clusters for hierarchical/kmeans
+            manuscripts: Dictionary mapping manuscript names to their texts
+            display_names: Optional dictionary mapping manuscript IDs to display names
+            method: Clustering method ('kmeans', 'hierarchical', 'dbscan')
+            n_clusters: Number of clusters (if None, determined automatically)
             min_samples: Minimum samples for DBSCAN
             eps: Maximum distance between samples for DBSCAN
             use_advanced_nlp: Whether to use advanced NLP features
             
         Returns:
-            Dictionary with analysis results
+            Dictionary with comparison results
         """
         print("Processing manuscripts and extracting features...")
+        
+        # Store display names for use in visualizations
+        self.display_names = display_names or {k: k for k in manuscripts.keys()}
         
         # Extract the base letter name without chapter info (e.g., "ROM-075" from "ROM-075-1")
         letter_texts = {}
@@ -913,21 +1027,26 @@ class MultipleManuscriptComparison:
             features[letter_id] = self.feature_extractor.extract_all_features(preprocessed[letter_id])
             
         # Calculate similarity matrix
-        similarity_matrix = self.calculate_similarity_matrix(features)
+        similarity_df = self.calculate_similarity_matrix(features)
         
-        # Save similarity matrix to disk for future reference
+        # Save the similarity matrix to disk
         os.makedirs(self.output_dir, exist_ok=True)
-        similarity_matrix.to_csv(os.path.join(self.output_dir, "similarity_matrix.csv"))
+        similarity_df.to_csv(os.path.join(self.output_dir, "similarity_matrix.csv"))
         try:
             import pickle
-            with open(os.path.join(self.output_dir, "similarity_matrix.pkl"), "wb") as f:
-                pickle.dump(similarity_matrix, f)
+            with open(os.path.join(self.output_dir, "similarity_matrix.pkl"), 'wb') as f:
+                pickle.dump(similarity_df, f)
         except Exception as e:
-            print(f"Warning: Could not save pickle version of similarity matrix: {e}")
+            print(f"Warning: Could not save pickle file: {e}")
+        
+        # Determine optimal number of clusters if not specified
+        if n_clusters is None:
+            n_clusters = self.determine_optimal_clusters(similarity_df)
+            print(f"\nOptimal number of clusters determined: {n_clusters}")
         
         # Perform clustering
-        clusters = self.cluster_manuscripts(
-            similarity_matrix,
+        clustering_result = self.cluster_manuscripts(
+            similarity_df=similarity_df,
             n_clusters=n_clusters,
             method=method,
             min_samples=min_samples,
@@ -936,24 +1055,24 @@ class MultipleManuscriptComparison:
         
         # Generate visualizations
         visualizations = self.generate_visualizations(
-            clusters,
-            similarity_matrix,
+            clustering_result,
+            similarity_df,
             threshold=0.5
         )
         
         # Generate report
         report = self.generate_report(
-            clusters,
+            clustering_result,
             preprocessed,
             features,
-            similarity_matrix
+            similarity_df
         )
         
         return {
             'preprocessed': preprocessed,
             'features': features,
-            'similarity_matrix': similarity_matrix,
-            'clusters': clusters,
+            'similarity_matrix': similarity_df,
+            'clusters': clustering_result,
             'visualizations': visualizations,
             'report': report
         }
@@ -1025,12 +1144,12 @@ class MultipleManuscriptComparison:
         # Generate report text
         report_path = os.path.join(self.output_dir, 'clustering_report.txt')
         with open(report_path, 'w') as f:
-            f.write("Pauline Letters Stylometric Analysis Report\n")
+            f.write("New Testament Stylometric Analysis Report\n")
             f.write("=" * 60 + "\n\n")
             
             f.write(f"Analysis Method: {method.upper()}\n")
             f.write(f"Number of Clusters: {len(clusters)}\n")
-            f.write(f"Total Letters Analyzed: {len(manuscript_names)}\n\n")
+            f.write(f"Total Books Analyzed: {len(manuscript_names)}\n\n")
             
             # Overall similarity statistics
             similarities = []
@@ -1045,6 +1164,9 @@ class MultipleManuscriptComparison:
             f.write(f"Maximum Similarity: {np.max(similarities):.4f}\n")
             f.write(f"Similarity Std Dev: {np.std(similarities):.4f}\n\n")
             
+            # Use display names in the report
+            display_names = getattr(self, 'display_names', {})
+            
             # Cluster details
             f.write("Cluster Analysis\n")
             f.write("-" * 40 + "\n\n")
@@ -1053,7 +1175,8 @@ class MultipleManuscriptComparison:
                 f.write(f"Cluster {cluster_id}:\n")
                 f.write(f"  Members ({stats['size']}):\n")
                 for member in stats['members']:
-                    f.write(f"    - {member}\n")
+                    display_name = display_names.get(member, member)
+                    f.write(f"    - {display_name} ({member})\n")
                 
                 f.write("\n  Statistics:\n")
                 f.write(f"    Average Within-Cluster Similarity: {stats['avg_within_similarity']:.4f}\n")
@@ -1093,5 +1216,24 @@ class MultipleManuscriptComparison:
             f.write("  0.4 - 0.6: Moderate Similarity (some stylistic overlap)\n")
             f.write("  0.2 - 0.4: Low Similarity (limited stylistic connection)\n")
             f.write("  0.0 - 0.2: Very Low Similarity (distinct styles)\n")
+            
+            # Add information about Pauline vs non-Pauline distribution
+            f.write("\nPauline vs Non-Pauline Distribution Analysis\n")
+            f.write("-" * 40 + "\n")
+            
+            # Identify Pauline letters
+            pauline_books = [name for name in manuscript_names if any(code in name for code in 
+                            ["ROM", "1CO", "2CO", "GAL", "EPH", "PHP", "COL", "1TH", "2TH", "1TI", "2TI", "TIT", "PHM"])]
+            
+            # Analyze distribution of Pauline books across clusters
+            f.write("Distribution of Pauline books across clusters:\n")
+            for cluster_id, members in clusters.items():
+                pauline_in_cluster = [book for book in members if book in pauline_books]
+                non_pauline_in_cluster = [book for book in members if book not in pauline_books]
+                
+                f.write(f"  Cluster {cluster_id}:\n")
+                f.write(f"    Pauline books: {len(pauline_in_cluster)} of {len(pauline_books)} total Pauline books\n")
+                f.write(f"    Non-Pauline books: {len(non_pauline_in_cluster)} of {len(manuscript_names) - len(pauline_books)} total non-Pauline books\n")
+                f.write(f"    Percentage Pauline: {len(pauline_in_cluster) / len(members) * 100:.1f}%\n\n")
         
         return report_path 

@@ -16,10 +16,11 @@ class SimilarityCalculator:
         
         # Feature weights for different aspects
         self.weights = {
-            'vocabulary': 0.3,  # Vocabulary richness and distribution
-            'sentence': 0.2,    # Sentence structure and length
-            'transitions': 0.2,  # Writing flow and transitions
-            'ngrams': 0.3       # Character and word patterns
+            'vocabulary': 0.25,  # Vocabulary richness and distribution
+            'sentence': 0.15,    # Sentence structure and length
+            'transitions': 0.15,  # Writing flow and transitions
+            'ngrams': 0.25,      # Character and word patterns
+            'syntactic': 0.20    # Advanced NLP syntactic features
         }
     
     def calculate_feature_vector(self, features: Dict[str, Any]) -> np.ndarray:
@@ -85,6 +86,20 @@ class SimilarityCalculator:
                 ngram_features.extend([0, 0])
         feature_vector.extend(ngram_features)
         
+        # Add syntactic features from advanced NLP if available
+        if 'syntactic_features' in features:
+            syntactic = features['syntactic_features']
+            feature_vector.extend([
+                syntactic['noun_ratio'],
+                syntactic['verb_ratio'], 
+                syntactic['adj_ratio'],
+                syntactic['adv_ratio'],
+                syntactic['function_word_ratio']
+            ])
+        else:
+            # Add zeros if syntactic features are not available
+            feature_vector.extend([0, 0, 0, 0, 0])
+        
         return np.array(feature_vector)
     
     def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> pd.DataFrame:
@@ -145,12 +160,22 @@ class SimilarityCalculator:
                     similarity += self.weights['transitions'] * trans_sim
                     start_idx += 4
                     
-                    # N-gram features (remaining features)
+                    # N-gram features (remaining features before syntactic)
+                    ngram_count = 4  # Number of n-gram features
                     ngram_sim = self._cosine_similarity(
-                        X_scaled[i, start_idx:],
-                        X_scaled[j, start_idx:]
+                        X_scaled[i, start_idx:start_idx+ngram_count],
+                        X_scaled[j, start_idx:start_idx+ngram_count]
                     )
                     similarity += self.weights['ngrams'] * ngram_sim
+                    start_idx += ngram_count
+                    
+                    # Syntactic features (last 5 features)
+                    if start_idx < X_scaled.shape[1]:
+                        syntactic_sim = self._cosine_similarity(
+                            X_scaled[i, start_idx:],
+                            X_scaled[j, start_idx:]
+                        )
+                        similarity += self.weights['syntactic'] * syntactic_sim
                     
                     similarity_matrix[i, j] = similarity
         

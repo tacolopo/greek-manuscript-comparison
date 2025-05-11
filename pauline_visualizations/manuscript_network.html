@@ -1,0 +1,178 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 900px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+             #config {
+                 float: left;
+                 width: 400px;
+                 height: 600px;
+             }
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+            <div id="config"></div>
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#35b778", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1CO-076", "label": "1 Corinthians", "shape": "dot", "size": 40, "title": "1 Corinthians (Cluster 2)"}, {"color": "#35b778", "font": {"color": "black", "face": "serif", "size": 18}, "id": "GAL-078", "label": "Galatians", "shape": "dot", "size": 40, "title": "Galatians (Cluster 2)"}, {"color": "#35b778", "font": {"color": "black", "face": "serif", "size": 18}, "id": "ROM-075", "label": "Romans", "shape": "dot", "size": 40, "title": "Romans (Cluster 2)"}, {"color": "#35b778", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2CO-077", "label": "2 Corinthians", "shape": "dot", "size": 40, "title": "2 Corinthians (Cluster 2)"}, {"color": "#fde724", "font": {"color": "black", "face": "serif", "size": 18}, "id": "PHM-087", "label": "Philemon", "shape": "dot", "size": 40, "title": "Philemon (Cluster 3)"}, {"color": "#30678d", "font": {"color": "black", "face": "serif", "size": 18}, "id": "PHP-080", "label": "Philippians", "shape": "dot", "size": 40, "title": "Philippians (Cluster 1)"}, {"color": "#30678d", "font": {"color": "black", "face": "serif", "size": 18}, "id": "TIT-086", "label": "Titus", "shape": "dot", "size": 40, "title": "Titus (Cluster 1)"}, {"color": "#fde724", "font": {"color": "black", "face": "serif", "size": 18}, "id": "COL-081", "label": "Colossians", "shape": "dot", "size": 40, "title": "Colossians (Cluster 3)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1TH-082", "label": "1 Thessalonians", "shape": "dot", "size": 40, "title": "1 Thessalonians (Cluster 0)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2TH-083", "label": "2 Thessalonians", "shape": "dot", "size": 40, "title": "2 Thessalonians (Cluster 0)"}, {"color": "#30678d", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1TI-084", "label": "1 Timothy", "shape": "dot", "size": 40, "title": "1 Timothy (Cluster 1)"}, {"color": "#30678d", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2TI-085", "label": "2 Timothy", "shape": "dot", "size": 40, "title": "2 Timothy (Cluster 1)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "EPH-079", "label": "Ephesians", "shape": "dot", "size": 40, "title": "Ephesians (Cluster 0)"}]);
+                  edges = new vis.DataSet([{"color": "#7e7e00", "from": "1CO-076", "title": "Similarity: 0.7484", "to": "ROM-075", "value": 5.987562529707314}, {"color": "#121200", "from": "1CO-076", "title": "Similarity: 0.5371", "to": "2CO-077", "value": 4.296736364750593}, {"color": "#2f2f00", "from": "ROM-075", "title": "Similarity: 0.5933", "to": "2CO-077", "value": 4.746216817407394}, {"color": "#0e0e00", "from": "TIT-086", "title": "Similarity: 0.5277", "to": "1TI-084", "value": 4.221458977459047}, {"color": "#2a2a00", "from": "TIT-086", "title": "Similarity: 0.5833", "to": "2TI-085", "value": 4.666501673904045}, {"color": "#5f5f00", "from": "1TI-084", "title": "Similarity: 0.6878", "to": "2TI-085", "value": 5.502691556761333}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": true,
+        "filter": [
+            "physics"
+        ]
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "barnesHut": {
+            "avoidOverlap": 0,
+            "centralGravity": 0.3,
+            "damping": 0.09,
+            "gravitationalConstant": -5000,
+            "springConstant": 0.05,
+            "springLength": 150
+        },
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+                  // if this network requires displaying the configure window,
+                  // put it in its div
+                  options.configure["container"] = document.getElementById("config");
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
