@@ -150,13 +150,20 @@ def main():
             visualizations_dir=args.vis_dir
         )
         
+        # Load manuscript texts into a dictionary
+        manuscripts = {}
+        for file_path, name in zip(manuscript_files, manuscript_names):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                manuscripts[name] = f.read()
+        
         # Run comparison
         results = comparison.compare_multiple_manuscripts(
-            manuscript_paths=manuscript_files,
-            manuscript_names=manuscript_names,
+            manuscripts=manuscripts,
+            method=args.method,
             n_clusters=args.clusters,
-            clustering_method=args.method,
-            similarity_threshold=args.threshold
+            min_samples=2,  # Default value for DBSCAN
+            eps=0.5,  # Default value for DBSCAN
+            use_advanced_nlp=args.advanced_nlp
         )
         
         print("\nComparison completed successfully!")

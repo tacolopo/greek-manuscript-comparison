@@ -1,289 +1,171 @@
 """
-Module for calculating similarity between Greek manuscripts.
+Module for calculating similarities between manuscripts.
 """
 
-import math
-from typing import Dict, List, Tuple, Set, Any, Optional
-
 import numpy as np
-from scipy.spatial.distance import cosine
-from scipy.stats import pearsonr, spearmanr
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import pandas as pd
+from typing import Dict, Any, List
+from sklearn.preprocessing import StandardScaler
 
 class SimilarityCalculator:
-    """Calculate similarity between Greek manuscripts."""
+    """Calculate similarities between manuscripts based on their features."""
     
     def __init__(self):
-        """Initialize the similarity calculator."""
-        pass
+        """Initialize similarity calculator."""
+        self.scaler = StandardScaler()
+        
+        # Feature weights for different aspects
+        self.weights = {
+            'vocabulary': 0.3,  # Vocabulary richness and distribution
+            'sentence': 0.2,    # Sentence structure and length
+            'transitions': 0.2,  # Writing flow and transitions
+            'ngrams': 0.3       # Character and word patterns
+        }
     
-    def jaccard_similarity(self, set1: Set, set2: Set) -> float:
+    def calculate_feature_vector(self, features: Dict[str, Any]) -> np.ndarray:
         """
-        Calculate Jaccard similarity between two sets.
+        Convert features dictionary to numeric vector.
         
         Args:
-            set1: First set
-            set2: Second set
+            features: Dictionary of extracted features
             
         Returns:
-            Jaccard similarity score
+            Numpy array of numeric features
         """
-        if not set1 and not set2:
-            return 1.0
-            
-        intersection = len(set1.intersection(set2))
-        union = len(set1.union(set2))
+        feature_vector = []
         
-        return intersection / union if union > 0 else 0.0
+        # Vocabulary features - these are already relative/normalized
+        vocab = features['vocabulary_richness']
+        feature_vector.extend([
+            vocab['unique_tokens_ratio'],
+            vocab['hapax_legomena_ratio'],
+            vocab['dis_legomena_ratio'],
+            vocab['yule_k'],
+            vocab['simpson_d'],
+            vocab['herdan_c'],
+            vocab['guiraud_r'],
+            vocab['sichel_s']
+        ])
+        
+        # Sentence features - normalize sentence length metrics
+        sent_stats = features['sentence_stats']
+        # We keep mean and median sentence length as they're stylistic choices
+        # But we normalize the std_dev by the mean to get coefficient of variation
+        # This makes the variation measure size-independent
+        sentence_cv = sent_stats['std_sentence_length'] / (sent_stats['mean_sentence_length'] + 1e-10)
+        feature_vector.extend([
+            sent_stats['mean_sentence_length'],
+            sent_stats['median_sentence_length'],
+            sentence_cv,  # Coefficient of variation instead of std
+            sent_stats['sentence_length_variance'] / (sent_stats['mean_sentence_length']**2 + 1e-10)  # Normalized variance
+        ])
+        
+        # Transition features - already normalized
+        transitions = features['transition_patterns']
+        feature_vector.extend([
+            transitions['length_transition_smoothness'],
+            transitions['length_pattern_repetition'],
+            transitions['clause_boundary_regularity'],
+            transitions['sentence_rhythm_consistency']
+        ])
+        
+        # N-gram features - using relative frequencies instead of counts
+        ngram_features = []
+        for ngram_dict in [features['word_bigrams'], features['word_trigrams']]:
+            if ngram_dict and len(ngram_dict) > 0:
+                # Get normalized distribution shape metrics
+                values = list(ngram_dict.values())
+                total = sum(values) + 1e-10
+                normalized_values = [v/total for v in values]
+                ngram_features.extend([
+                    np.mean(normalized_values),
+                    np.std(normalized_values) / (np.mean(normalized_values) + 1e-10)  # Coefficient of variation
+                ])
+            else:
+                ngram_features.extend([0, 0])
+        feature_vector.extend(ngram_features)
+        
+        return np.array(feature_vector)
     
-    def cosine_similarity_dictionaries(self, dict1: Dict[Any, float], dict2: Dict[Any, float]) -> float:
+    def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> pd.DataFrame:
         """
-        Calculate cosine similarity between two dictionaries.
+        Calculate similarity matrix between all manuscripts.
         
         Args:
-            dict1: First dictionary mapping items to frequencies
-            dict2: Second dictionary mapping items to frequencies
+            features_data: Dictionary mapping manuscript names to their features
             
         Returns:
-            Cosine similarity score
+            DataFrame containing pairwise similarities
         """
-        if not dict1 or not dict2:
-            return 0.0
-            
-        # Get all keys
-        all_keys = set(dict1.keys()).union(dict2.keys())
+        # Convert features to vectors
+        manuscript_names = list(features_data.keys())
+        feature_vectors = []
         
-        # Create vectors
-        vec1 = np.array([dict1.get(key, 0.0) for key in all_keys])
-        vec2 = np.array([dict2.get(key, 0.0) for key in all_keys])
+        for name in manuscript_names:
+            vector = self.calculate_feature_vector(features_data[name])
+            feature_vectors.append(vector)
+        
+        # Convert to array and normalize
+        X = np.array(feature_vectors)
+        X_scaled = self.scaler.fit_transform(X)
         
         # Calculate cosine similarity
-        dot_product = np.dot(vec1, vec2)
-        norm1 = np.linalg.norm(vec1)
-        norm2 = np.linalg.norm(vec2)
+        similarity_matrix = np.zeros((len(manuscript_names), len(manuscript_names)))
         
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
-            
-        return dot_product / (norm1 * norm2)
+        for i in range(len(manuscript_names)):
+            for j in range(len(manuscript_names)):
+                if i == j:
+                    similarity_matrix[i, j] = 1.0
+                else:
+                    # Calculate weighted similarity for each feature group
+                    start_idx = 0
+                    similarity = 0
+                    
+                    # Vocabulary features (first 8 features)
+                    vocab_sim = self._cosine_similarity(
+                        X_scaled[i, start_idx:start_idx+8],
+                        X_scaled[j, start_idx:start_idx+8]
+                    )
+                    similarity += self.weights['vocabulary'] * vocab_sim
+                    start_idx += 8
+                    
+                    # Sentence features (next 4 features)
+                    sent_sim = self._cosine_similarity(
+                        X_scaled[i, start_idx:start_idx+4],
+                        X_scaled[j, start_idx:start_idx+4]
+                    )
+                    similarity += self.weights['sentence'] * sent_sim
+                    start_idx += 4
+                    
+                    # Transition features (next 4 features)
+                    trans_sim = self._cosine_similarity(
+                        X_scaled[i, start_idx:start_idx+4],
+                        X_scaled[j, start_idx:start_idx+4]
+                    )
+                    similarity += self.weights['transitions'] * trans_sim
+                    start_idx += 4
+                    
+                    # N-gram features (remaining features)
+                    ngram_sim = self._cosine_similarity(
+                        X_scaled[i, start_idx:],
+                        X_scaled[j, start_idx:]
+                    )
+                    similarity += self.weights['ngrams'] * ngram_sim
+                    
+                    similarity_matrix[i, j] = similarity
+        
+        return pd.DataFrame(
+            similarity_matrix,
+            index=manuscript_names,
+            columns=manuscript_names
+        )
     
-    def calculate_vocabulary_similarity(self, features1: Dict, features2: Dict) -> Dict[str, float]:
-        """
-        Calculate vocabulary similarity between two texts.
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+        """Calculate cosine similarity between two vectors."""
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
         
-        Args:
-            features1: Features of first text
-            features2: Features of second text
+        if norm_a == 0 or norm_b == 0:
+            return 0
             
-        Returns:
-            Dictionary with vocabulary similarity scores
-        """
-        # Extract word frequencies
-        word_freq1 = features1['word_frequencies']
-        word_freq2 = features2['word_frequencies']
-        
-        # Calculate Jaccard similarity between vocabularies
-        vocab1 = set(word_freq1.keys())
-        vocab2 = set(word_freq2.keys())
-        jaccard_score = self.jaccard_similarity(vocab1, vocab2)
-        
-        # Calculate cosine similarity between frequency distributions
-        cosine_score = self.cosine_similarity_dictionaries(word_freq1, word_freq2)
-        
-        return {
-            'vocabulary_jaccard': jaccard_score,
-            'vocabulary_cosine': cosine_score
-        }
-    
-    def calculate_ngram_similarity(self, features1: Dict, features2: Dict) -> Dict[str, float]:
-        """
-        Calculate n-gram similarity between two texts.
-        
-        Args:
-            features1: Features of first text
-            features2: Features of second text
-            
-        Returns:
-            Dictionary with n-gram similarity scores
-        """
-        # Extract n-gram frequencies
-        bigram_freq1 = features1['bigram_frequencies']
-        bigram_freq2 = features2['bigram_frequencies']
-        trigram_freq1 = features1['trigram_frequencies']
-        trigram_freq2 = features2['trigram_frequencies']
-        
-        # Calculate Jaccard similarity between sets of n-grams
-        bigram_jaccard = self.jaccard_similarity(set(bigram_freq1.keys()), set(bigram_freq2.keys()))
-        trigram_jaccard = self.jaccard_similarity(set(trigram_freq1.keys()), set(trigram_freq2.keys()))
-        
-        # Calculate cosine similarity between n-gram frequency distributions
-        bigram_cosine = self.cosine_similarity_dictionaries(bigram_freq1, bigram_freq2)
-        trigram_cosine = self.cosine_similarity_dictionaries(trigram_freq1, trigram_freq2)
-        
-        return {
-            'bigram_jaccard': bigram_jaccard,
-            'bigram_cosine': bigram_cosine,
-            'trigram_jaccard': trigram_jaccard,
-            'trigram_cosine': trigram_cosine
-        }
-    
-    def calculate_sentence_stats_similarity(self, features1: Dict, features2: Dict) -> Dict[str, float]:
-        """
-        Calculate similarity between sentence statistics.
-        
-        Args:
-            features1: Features of first text
-            features2: Features of second text
-            
-        Returns:
-            Dictionary with sentence statistics similarity scores
-        """
-        # Extract sentence stats
-        stats1 = features1['sentence_stats']
-        stats2 = features2['sentence_stats']
-        
-        # Calculate stats
-        mean_diff = abs(stats1['mean_sentence_length'] - stats2['mean_sentence_length'])
-        median_diff = abs(stats1['median_sentence_length'] - stats2['median_sentence_length'])
-        std_diff = abs(stats1['std_sentence_length'] - stats2['std_sentence_length'])
-        
-        # Normalize differences to similarity scores (0 to 1)
-        # Using a simple exponential decay function: sim = exp(-diff)
-        # This makes smaller differences result in higher similarity
-        mean_sim = math.exp(-mean_diff / 5)  # Divide by 5 to make the decay less steep
-        median_sim = math.exp(-median_diff / 5)
-        std_sim = math.exp(-std_diff / 3)
-        
-        return {
-            'sentence_length_mean_sim': mean_sim,
-            'sentence_length_median_sim': median_sim,
-            'sentence_length_std_sim': std_sim
-        }
-    
-    def calculate_vocabulary_richness_similarity(self, features1: Dict, features2: Dict) -> Dict[str, float]:
-        """
-        Calculate similarity between vocabulary richness metrics.
-        
-        Args:
-            features1: Features of first text
-            features2: Features of second text
-            
-        Returns:
-            Dictionary with vocabulary richness similarity scores
-        """
-        # Extract vocabulary richness metrics
-        vr1 = features1['vocabulary_richness']
-        vr2 = features2['vocabulary_richness']
-        
-        # Calculate differences
-        unique_ratio_diff = abs(vr1['unique_tokens_ratio'] - vr2['unique_tokens_ratio'])
-        hapax_ratio_diff = abs(vr1['hapax_legomena_ratio'] - vr2['hapax_legomena_ratio'])
-        yule_k_diff = abs(vr1['yule_k'] - vr2['yule_k'])
-        
-        # Normalize differences to similarity scores (0 to 1)
-        unique_ratio_sim = math.exp(-unique_ratio_diff * 5)  # Higher weight as this is in [0,1]
-        hapax_ratio_sim = math.exp(-hapax_ratio_diff * 5)    # Higher weight as this is in [0,1]
-        yule_k_sim = math.exp(-yule_k_diff / 100)            # Lower weight as Yule's K can be larger
-        
-        return {
-            'unique_ratio_sim': unique_ratio_sim,
-            'hapax_ratio_sim': hapax_ratio_sim,
-            'yule_k_sim': yule_k_sim
-        }
-    
-    def calculate_word_position_similarity(self, features1: Dict, features2: Dict) -> Dict[str, float]:
-        """
-        Calculate similarity between word positions.
-        
-        Args:
-            features1: Features of first text
-            features2: Features of second text
-            
-        Returns:
-            Dictionary with word position similarity scores
-        """
-        # Extract word positions
-        positions1 = features1['word_positions']['sentence_positions']
-        positions2 = features2['word_positions']['sentence_positions']
-        
-        # Find common words
-        common_words = set(positions1.keys()).intersection(positions2.keys())
-        
-        if not common_words:
-            return {'word_position_correlation': 0.0}
-            
-        # Create position vectors for common words
-        pos_vec1 = [positions1[word] for word in common_words]
-        pos_vec2 = [positions2[word] for word in common_words]
-        
-        # Calculate correlation
-        if len(common_words) < 2:
-            correlation = 0.0
-        else:
-            try:
-                correlation, _ = pearsonr(pos_vec1, pos_vec2)
-                if math.isnan(correlation):
-                    correlation = 0.0
-            except:
-                correlation = 0.0
-                
-        # Convert correlation to similarity (0 to 1)
-        # Correlation is in [-1, 1], so we transform it to [0, 1]
-        position_sim = (correlation + 1) / 2
-        
-        return {'word_position_correlation': position_sim}
-    
-    def calculate_overall_similarity(self, features1: Dict, features2: Dict) -> Dict[str, float]:
-        """
-        Calculate overall similarity between two texts based on all features.
-        
-        Args:
-            features1: Features of first text
-            features2: Features of second text
-            
-        Returns:
-            Dictionary with similarity scores
-        """
-        # Calculate individual similarity scores
-        vocabulary_sim = self.calculate_vocabulary_similarity(features1, features2)
-        ngram_sim = self.calculate_ngram_similarity(features1, features2)
-        sentence_stats_sim = self.calculate_sentence_stats_similarity(features1, features2)
-        vocab_richness_sim = self.calculate_vocabulary_richness_similarity(features1, features2)
-        word_position_sim = self.calculate_word_position_similarity(features1, features2)
-        
-        # Combine all similarity scores
-        all_scores = {}
-        all_scores.update(vocabulary_sim)
-        all_scores.update(ngram_sim)
-        all_scores.update(sentence_stats_sim)
-        all_scores.update(vocab_richness_sim)
-        all_scores.update(word_position_sim)
-        
-        # Calculate overall similarity as weighted average of all scores
-        # These weights can be adjusted based on what's most important
-        weights = {
-            'vocabulary_jaccard': 1.0,
-            'vocabulary_cosine': 1.5,
-            'bigram_jaccard': 1.0,
-            'bigram_cosine': 2.0,
-            'trigram_jaccard': 1.0,
-            'trigram_cosine': 2.5,
-            'sentence_length_mean_sim': 0.5,
-            'sentence_length_median_sim': 0.5,
-            'sentence_length_std_sim': 0.5,
-            'unique_ratio_sim': 1.0,
-            'hapax_ratio_sim': 1.0,
-            'yule_k_sim': 1.0,
-            'word_position_correlation': 1.5
-        }
-        
-        total_weight = sum(weights.values())
-        weighted_sum = sum(weights.get(key, 1.0) * value for key, value in all_scores.items())
-        
-        overall_similarity = weighted_sum / total_weight if total_weight > 0 else 0.0
-        
-        # Add overall similarity to results
-        all_scores['overall_similarity'] = overall_similarity
-        
-        return all_scores 
+        return np.dot(a, b) / (norm_a * norm_b) 

@@ -10,8 +10,8 @@ from collections import defaultdict
 def parse_filename(filename: str) -> Tuple[str, str, str, str]:
     """
     Parse a chapter filename to extract manuscript info.
-    Expected format: grcsbl_XXX_BBB_CC_read.txt
-    where XXX is the manuscript number, BBB is the book code, CC is the chapter
+    Expected format: path/to/grcsbl_XXX_BBB_CC_read.txt
+    where XXX is the manuscript number, BBB is the book code (ROM, 1CO, 2CO, etc.), CC is the chapter
     
     Args:
         filename: Name of the chapter file
@@ -19,9 +19,12 @@ def parse_filename(filename: str) -> Tuple[str, str, str, str]:
     Returns:
         Tuple of (manuscript_id, book_code, chapter_num, full_path)
     """
-    # Extract components using regex
-    pattern = r'grcsbl_(\d+)_([A-Z]+)_(\d+)_read\.txt'
-    match = re.match(pattern, os.path.basename(filename))
+    # Define valid Pauline letter codes
+    VALID_BOOKS = r'(?:ROM|1CO|2CO|GAL|EPH|PHP|COL|1TH|2TH|1TI|2TI|TIT|PHM)'
+    
+    # Extract components using regex - allow for full path
+    pattern = rf'.*?grcsbl_(\d+)_({VALID_BOOKS})_(\d+)_read\.txt$'
+    match = re.match(pattern, filename)
     
     if not match:
         raise ValueError(f"Invalid filename format: {filename}")

@@ -20,6 +20,17 @@ class FeatureExtractor:
             ngram_range=(3, 5),  # Character n-grams from size 3 to 5
             max_features=1000
         )
+        self.is_fitted = False
+    
+    def fit(self, texts: List[str]):
+        """
+        Fit the TF-IDF vectorizer on a corpus of texts.
+        
+        Args:
+            texts: List of texts to fit on
+        """
+        self.tfidf.fit(texts)
+        self.is_fitted = True
     
     def extract_ngrams(self, tokens: List[str], n: int) -> List[Tuple[str, ...]]:
         """
@@ -343,9 +354,15 @@ class FeatureExtractor:
         # N-gram frequencies (both word and character level)
         features['word_bigrams'] = self.calculate_ngram_frequency(words, n=2)
         features['word_trigrams'] = self.calculate_ngram_frequency(words, n=3)
+        
+        # TF-IDF features
+        if not self.is_fitted:
+            raise ValueError("TF-IDF vectorizer must be fitted before extracting features. Call fit() first.")
+        
+        tfidf_features = self.tfidf.transform([normalized_text]).toarray()[0]
         features['char_ngrams'] = dict(zip(
             self.tfidf.get_feature_names_out(),
-            self.tfidf.fit_transform([normalized_text]).toarray()[0]
+            tfidf_features
         ))
         
         # Sentence length and structure statistics

@@ -1,0 +1,102 @@
+# Optimal Clustering Analysis with 5 Clusters
+
+## Cluster 0:
+
+- Philippians (PHP-080)
+- 1 Timothy (1TI-084)
+- 2 Timothy (2TI-085)
+- Titus (TIT-086)
+
+Within-cluster similarity statistics:
+- Average: 0.5714
+- Min: 0.0718
+- Max: 0.8629
+
+## Cluster 1:
+
+- Colossians (COL-081)
+- Philemon (PHM-087)
+
+Within-cluster similarity statistics:
+- Average: 0.4470
+- Min: 0.4470
+- Max: 0.4470
+
+## Cluster 2:
+
+- Romans (ROM-075)
+- 1 Corinthians (1CO-076)
+- 2 Corinthians (2CO-077)
+- Galatians (GAL-078)
+
+Within-cluster similarity statistics:
+- Average: 0.6563
+- Min: 0.4317
+- Max: 0.9338
+
+## Cluster 3:
+
+- Ephesians (EPH-079)
+- 1 Thessalonians (1TH-082)
+
+Within-cluster similarity statistics:
+- Average: 0.5609
+- Min: 0.5609
+- Max: 0.5609
+
+## Cluster 4:
+
+- 2 Thessalonians (2TH-083)
+
+# Between-Cluster Similarities
+
+Between Cluster 0 and Cluster 1:
+- Average: 0.0021
+- Min: -0.2402
+- Max: 0.3437
+
+Between Cluster 0 and Cluster 2:
+- Average: -0.3100
+- Min: -0.6795
+- Max: 0.1137
+
+Between Cluster 0 and Cluster 3:
+- Average: -0.2742
+- Min: -0.7202
+- Max: 0.2173
+
+Between Cluster 0 and Cluster 4:
+- Average: -0.2370
+- Min: -0.5096
+- Max: -0.0700
+
+Between Cluster 1 and Cluster 2:
+- Average: -0.4589
+- Min: -0.7927
+- Max: -0.0611
+
+Between Cluster 1 and Cluster 3:
+- Average: -0.1303
+- Min: -0.3484
+- Max: 0.1351
+
+Between Cluster 1 and Cluster 4:
+- Average: 0.1556
+- Min: -0.0977
+- Max: 0.4089
+
+Between Cluster 2 and Cluster 3:
+- Average: 0.0477
+- Min: -0.2420
+- Max: 0.4196
+
+Between Cluster 2 and Cluster 4:
+- Average: -0.3468
+- Min: -0.5311
+- Max: -0.1720
+
+Between Cluster 3 and Cluster 4:
+- Average: 0.1678
+- Min: 0.0373
+- Max: 0.2984
+

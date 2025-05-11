@@ -1,156 +1,118 @@
 """
-Module for preprocessing Greek manuscript texts.
+Module for preprocessing Greek texts.
 """
 
 import re
-import unicodedata
-from typing import List, Dict, Optional
-
-import nltk
-from cltk.corpus.greek.beta_to_unicode import Replacer
-from cltk.tokenize.greek.sentence import GreekRegexSentenceTokenizer
-from cltk.tokenize.greek.word import GreekWordTokenizer
-from cltk.stops.greek.stops import STOPS as GREEK_STOPS
-
-# Initialize CLTK tools
-greek_sentence_tokenizer = GreekRegexSentenceTokenizer()
-greek_word_tokenizer = GreekWordTokenizer()
-beta_code_replacer = Replacer()
+from typing import Dict, List, Any
 
 class GreekTextPreprocessor:
-    """Class for preprocessing Greek manuscript texts."""
+    """Preprocess Greek texts for analysis."""
     
-    def __init__(self, remove_stopwords: bool = True, 
-                 normalize_accents: bool = True,
-                 lowercase: bool = True):
-        """
-        Initialize the Greek text preprocessor.
-        
-        Args:
-            remove_stopwords: Whether to remove Greek stopwords
-            normalize_accents: Whether to normalize Greek accents
-            lowercase: Whether to convert text to lowercase
-        """
-        self.remove_stopwords = remove_stopwords
-        self.normalize_accents = normalize_accents
-        self.lowercase = lowercase
-        self.stopwords = set(GREEK_STOPS)
+    def __init__(self):
+        """Initialize preprocessor."""
+        # Common Greek punctuation marks
+        self.punctuation = '.,;:!?·'
         
     def clean_text(self, text: str) -> str:
         """
-        Clean the input text by removing unwanted characters.
+        Clean raw text by normalizing whitespace and removing unwanted characters.
         
         Args:
-            text: Input Greek text
+            text: Raw text to clean
             
         Returns:
             Cleaned text
         """
-        # Replace beta code if present
-        text = beta_code_replacer.beta_code_to_unicode(text)
-        
-        # Remove non-Greek characters (keeping punctuation)
-        # Keep Greek characters (including accented ones), spaces, and basic punctuation
-        text = re.sub(r'[^\u0370-\u03FF\u1F00-\u1FFF\s.,;!?·]', ' ', text)
+        # Remove line numbers and other non-text markers
+        text = re.sub(r'[\d\[\]⟦⟧\{\}]+', '', text)
         
         # Normalize whitespace
-        text = re.sub(r'\s+', ' ', text).strip()
+        text = ' '.join(text.split())
         
-        return text
+        return text.strip()
     
-    def normalize_accents_and_case(self, text: str) -> str:
+    def split_sentences(self, text: str) -> List[str]:
         """
-        Normalize accents and case of Greek text.
+        Split text into sentences using Greek punctuation.
         
         Args:
-            text: Input Greek text
-            
-        Returns:
-            Normalized text
-        """
-        if self.normalize_accents:
-            # Normalize Unicode characters to composed form
-            text = unicodedata.normalize('NFC', text)
-            
-        if self.lowercase:
-            text = text.lower()
-            
-        return text
-    
-    def tokenize_sentences(self, text: str) -> List[str]:
-        """
-        Tokenize Greek text into sentences.
-        
-        Args:
-            text: Input Greek text
+            text: Text to split
             
         Returns:
             List of sentences
         """
-        return greek_sentence_tokenizer.tokenize(text)
+        # Split on sentence-ending punctuation
+        sentences = re.split(r'[.;!?]', text)
+        
+        # Clean and filter empty sentences
+        sentences = [s.strip() for s in sentences if s.strip()]
+        
+        return sentences
     
-    def tokenize_words(self, text: str) -> List[str]:
+    def tokenize(self, text: str) -> List[str]:
         """
-        Tokenize Greek text into words.
+        Tokenize text into words.
         
         Args:
-            text: Input Greek text or sentence
+            text: Text to tokenize
             
         Returns:
-            List of words
+            List of tokens
         """
-        tokens = greek_word_tokenizer.tokenize(text)
+        # Split on whitespace and punctuation
+        tokens = []
+        for word in text.split():
+            # Handle punctuation attached to words
+            if word[-1] in self.punctuation:
+                tokens.extend([word[:-1], word[-1]])
+            else:
+                tokens.append(word)
         
-        if self.remove_stopwords:
-            tokens = [token for token in tokens if token.lower() not in self.stopwords]
-            
-        return tokens
+        return [t for t in tokens if t]
     
-    def process_text(self, text: str) -> Dict:
+    def preprocess(self, text: str) -> Dict[str, Any]:
         """
-        Process a full Greek text, performing all preprocessing steps.
+        Preprocess a text string.
         
         Args:
-            text: Raw Greek manuscript text
+            text: Text string to preprocess
             
         Returns:
-            Dictionary containing the processed text in various forms
+            Dictionary containing preprocessed text data
         """
-        # Clean the text
+        # Clean text
         cleaned_text = self.clean_text(text)
         
-        # Normalize accents and case
-        normalized_text = self.normalize_accents_and_case(cleaned_text)
+        # Split into sentences
+        sentences = self.split_sentences(cleaned_text)
         
-        # Tokenize into sentences
-        sentences = self.tokenize_sentences(normalized_text)
+        # Tokenize
+        words = self.tokenize(cleaned_text)
         
-        # Tokenize each sentence into words
-        tokenized_sentences = [self.tokenize_words(sentence) for sentence in sentences]
-        
-        # Create a flat list of all words
-        all_words = [word for sentence in tokenized_sentences for word in sentence]
+        # Create tokenized sentences
+        tokenized_sentences = [self.tokenize(s) for s in sentences]
         
         return {
             'raw_text': text,
-            'cleaned_text': cleaned_text,
-            'normalized_text': normalized_text,
+            'normalized_text': cleaned_text,
             'sentences': sentences,
-            'tokenized_sentences': tokenized_sentences,
-            'words': all_words
+            'words': words,
+            'tokenized_sentences': tokenized_sentences
         }
     
-    def preprocess_file(self, file_path: str) -> Dict:
+    def preprocess_file(self, file_path: str) -> Dict[str, Any]:
         """
-        Process a Greek text file.
+        Preprocess a text file.
         
         Args:
-            file_path: Path to the text file
+            file_path: Path to text file
             
         Returns:
-            Dictionary containing the processed text in various forms
+            Dictionary containing preprocessed text data
         """
+        # Read file
         with open(file_path, 'r', encoding='utf-8') as f:
             text = f.read()
         
-        return self.process_text(text) 
+        # Use the text preprocessing method
+        return self.preprocess(text) 

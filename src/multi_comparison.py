@@ -20,10 +20,10 @@ import networkx as nx
 from pyvis.network import Network
 from tabulate import tabulate
 
-from preprocessing import GreekTextPreprocessor
-from features import FeatureExtractor
-from similarity import SimilarityCalculator
-from advanced_nlp import AdvancedGreekProcessor
+from .preprocessing import GreekTextPreprocessor
+from .features import FeatureExtractor
+from .similarity import SimilarityCalculator
+from .advanced_nlp import AdvancedGreekProcessor
 
 
 class MultipleManuscriptComparison:
@@ -139,70 +139,25 @@ class MultipleManuscriptComparison:
         
         return features_data
     
-    def calculate_similarity_matrix(self, 
-                                   features_data: Dict[str, Dict], 
-                                   preprocessed_data: Dict[str, Dict]) -> pd.DataFrame:
+    def calculate_similarity_matrix(self, features: Dict[str, Dict]) -> pd.DataFrame:
         """
-        Calculate similarity matrix between all manuscripts.
+        Calculate similarity matrix between manuscripts based on their features.
         
         Args:
-            features_data: Dictionary of manuscript features
-            preprocessed_data: Dictionary of preprocessed manuscript data
+            features: Dictionary mapping manuscript IDs to their extracted features
             
         Returns:
-            DataFrame containing pairwise similarity scores
+            DataFrame containing pairwise similarities
         """
-        # Get list of manuscript names
-        manuscript_names = list(features_data.keys())
-        num_manuscripts = len(manuscript_names)
-        
-        # Initialize similarity matrix
-        similarity_matrix = np.zeros((num_manuscripts, num_manuscripts))
-        
-        # Calculate pairwise similarities
-        for i, name1 in enumerate(tqdm(manuscript_names, desc="Calculating similarity matrix")):
-            features1 = features_data[name1]
-            
-            for j, name2 in enumerate(manuscript_names):
-                if i == j:
-                    # Similarity with self is 1.0
-                    similarity_matrix[i, j] = 1.0
-                elif j > i:
-                    # Calculate similarity
-                    features2 = features_data[name2]
-                    similarity_scores = self.similarity_calculator.calculate_overall_similarity(features1, features2)
-                    
-                    # Get overall similarity
-                    overall_similarity = similarity_scores['overall_similarity']
-                    
-                    # Add semantic similarity if available
-                    if self.advanced_processor and 'normalized_text' in preprocessed_data[name1] and 'normalized_text' in preprocessed_data[name2]:
-                        try:
-                            semantic_similarity = self.advanced_processor.get_semantic_similarity(
-                                preprocessed_data[name1]['normalized_text'],
-                                preprocessed_data[name2]['normalized_text']
-                            )
-                            
-                            # Combine with overall similarity (giving semantic similarity some weight)
-                            overall_similarity = 0.7 * overall_similarity + 0.3 * semantic_similarity
-                        except Exception as e:
-                            warnings.warn(f"Error calculating semantic similarity between {name1} and {name2}: {e}")
-                    
-                    # Store similarity
-                    similarity_matrix[i, j] = overall_similarity
-                    similarity_matrix[j, i] = overall_similarity  # Symmetric matrix
-        
-        # Create DataFrame for better visualization
-        similarity_df = pd.DataFrame(similarity_matrix, 
-                                    index=manuscript_names, 
-                                    columns=manuscript_names)
-        
-        return similarity_df
+        # Use the similarity calculator's matrix calculation method directly
+        return self.similarity_calculator.calculate_similarity_matrix(features)
     
     def cluster_manuscripts(self, 
                            similarity_df: pd.DataFrame, 
                            n_clusters: int = 3,
-                           method: str = 'kmeans') -> Dict[str, Any]:
+                           method: str = 'kmeans',
+                           min_samples: int = 2,
+                           eps: float = 0.5) -> Dict[str, Any]:
         """
         Cluster manuscripts based on similarity.
         
@@ -210,6 +165,8 @@ class MultipleManuscriptComparison:
             similarity_df: DataFrame with similarity matrix
             n_clusters: Number of clusters to create
             method: Clustering method ('kmeans', 'hierarchical', 'dbscan')
+            min_samples: Minimum samples for DBSCAN
+            eps: Maximum distance between samples for DBSCAN
             
         Returns:
             Dictionary with clustering results
@@ -226,8 +183,16 @@ class MultipleManuscriptComparison:
             mds = MDS(n_components=2, dissimilarity='precomputed', random_state=42)
             coordinates = mds.fit_transform(distance_matrix)
             
-            # t-SNE for alternative visualization
-            tsne = TSNE(n_components=2, metric='precomputed', random_state=42)
+            # t-SNE with adjusted perplexity for small sample size
+            n_samples = len(similarity_df)
+            perplexity = min(30, n_samples - 1)  # Adjust perplexity based on sample size
+            tsne = TSNE(
+                n_components=2,
+                metric='precomputed',
+                random_state=42,
+                perplexity=perplexity,
+                init='random'  # Use random initialization for precomputed metric
+            )
             coordinates_tsne = tsne.fit_transform(distance_matrix)
         except Exception as e:
             warnings.warn(f"Error in dimensionality reduction: {e}")
@@ -244,15 +209,15 @@ class MultipleManuscriptComparison:
             # Can use the distance matrix directly
             hierarchical = AgglomerativeClustering(
                 n_clusters=n_clusters, 
-                affinity='precomputed', 
+                metric='precomputed',  # Use precomputed distances
                 linkage='average'
             )
             labels = hierarchical.fit_predict(distance_matrix)
         elif method == 'dbscan':
             # Can use the distance matrix
             dbscan = DBSCAN(
-                eps=0.3,  # Maximum distance between samples
-                min_samples=2,  # Minimum number of samples in a neighborhood
+                eps=eps,  # Maximum distance between samples
+                min_samples=min_samples,  # Minimum number of samples in a neighborhood
                 metric='precomputed'
             )
             labels = dbscan.fit_predict(distance_matrix)
@@ -272,6 +237,226 @@ class MultipleManuscriptComparison:
         }
         
         return result
+    
+    def generate_visualizations(self, clustering_result: Dict[str, Any], 
+                              similarity_df: pd.DataFrame,
+                              threshold: float = 0.5) -> Dict[str, str]:
+        """
+        Generate visualizations for clustering results.
+        
+        Args:
+            clustering_result: Dictionary with clustering results
+            similarity_df: DataFrame with similarity matrix
+            threshold: Similarity threshold for network visualization
+            
+        Returns:
+            Dictionary mapping visualization types to their file paths
+        """
+        # Create output directory if it doesn't exist
+        os.makedirs(self.visualizations_dir, exist_ok=True)
+        
+        # Get data from clustering result
+        coordinates = clustering_result['coordinates']
+        coordinates_tsne = clustering_result['coordinates_tsne']
+        labels = clustering_result['labels']
+        manuscript_names = clustering_result['manuscript_names']
+        method = clustering_result['clustering_method']
+        
+        # Add descriptive labels for Pauline letters
+        letter_labels = {}
+        for name in manuscript_names:
+            if "ROM" in name:
+                letter_labels[name] = "Romans"
+            elif "1CO" in name:
+                letter_labels[name] = "1 Corinthians"
+            elif "2CO" in name:
+                letter_labels[name] = "2 Corinthians"
+            elif "GAL" in name:
+                letter_labels[name] = "Galatians"
+            elif "EPH" in name:
+                letter_labels[name] = "Ephesians"
+            elif "PHP" in name:
+                letter_labels[name] = "Philippians"
+            elif "COL" in name:
+                letter_labels[name] = "Colossians"
+            elif "1TH" in name:
+                letter_labels[name] = "1 Thessalonians"
+            elif "2TH" in name:
+                letter_labels[name] = "2 Thessalonians"
+            elif "1TI" in name:
+                letter_labels[name] = "1 Timothy"
+            elif "2TI" in name:
+                letter_labels[name] = "2 Timothy"
+            elif "TIT" in name:
+                letter_labels[name] = "Titus"
+            elif "PHM" in name:
+                letter_labels[name] = "Philemon"
+            else:
+                letter_labels[name] = name
+        
+        # Plot MDS visualization
+        plt.figure(figsize=(12, 10))
+        
+        # Create a color map for the clusters
+        unique_labels = sorted(set(labels))
+        colors = plt.cm.viridis(np.linspace(0, 1, len(unique_labels)))
+        color_map = {label: colors[i] for i, label in enumerate(unique_labels)}
+        
+        # Plot each cluster with a different color
+        for label in unique_labels:
+            mask = labels == label
+            plt.scatter(
+                coordinates[mask, 0], 
+                coordinates[mask, 1], 
+                c=[color_map[label]],
+                s=150, 
+                label=f"Cluster {label}"
+            )
+        
+        # Add manuscript names as labels
+        for i, name in enumerate(manuscript_names):
+            plt.annotate(
+                letter_labels[name], 
+                (coordinates[i, 0], coordinates[i, 1]),
+                fontsize=12,
+                font='serif',
+                weight='bold'
+            )
+            
+        plt.title(f'Pauline Letters Stylometric Analysis (MDS) - {method.upper()}', fontsize=16)
+        plt.legend(fontsize=12)
+        plt.grid(alpha=0.3)
+        plt.tight_layout()
+        
+        mds_path = os.path.join(self.visualizations_dir, 'clustering_mds.png')
+        plt.savefig(mds_path, dpi=300)
+        plt.close()
+        
+        # Plot t-SNE visualization
+        plt.figure(figsize=(12, 10))
+        
+        # Plot each cluster with a different color
+        for label in unique_labels:
+            mask = labels == label
+            plt.scatter(
+                coordinates_tsne[mask, 0], 
+                coordinates_tsne[mask, 1], 
+                c=[color_map[label]],
+                s=150, 
+                label=f"Cluster {label}"
+            )
+        
+        # Add manuscript names as labels
+        for i, name in enumerate(manuscript_names):
+            plt.annotate(
+                letter_labels[name], 
+                (coordinates_tsne[i, 0], coordinates_tsne[i, 1]),
+                fontsize=12,
+                font='serif',
+                weight='bold'
+            )
+            
+        plt.title(f'Pauline Letters Stylometric Analysis (t-SNE) - {method.upper()}', fontsize=16)
+        plt.legend(fontsize=12)
+        plt.grid(alpha=0.3)
+        plt.tight_layout()
+        
+        tsne_path = os.path.join(self.visualizations_dir, 'clustering_tsne.png')
+        plt.savefig(tsne_path, dpi=300)
+        plt.close()
+        
+        # Create similarity heatmap
+        plt.figure(figsize=(14, 12))
+        
+        # Rename the index and columns with full letter names
+        similarity_df_renamed = similarity_df.copy()
+        similarity_df_renamed.index = [letter_labels[name] for name in similarity_df.index]
+        similarity_df_renamed.columns = [letter_labels[name] for name in similarity_df.columns]
+        
+        # Create a mask for the upper triangle to avoid redundancy
+        mask = np.zeros_like(similarity_df_renamed.values, dtype=bool)
+        mask[np.triu_indices_from(mask, k=1)] = True
+        
+        # Create the heatmap
+        sns.heatmap(
+            similarity_df_renamed, 
+            annot=True, 
+            cmap='RdYlGn', 
+            fmt='.2f',
+            mask=mask,
+            square=True,
+            linewidths=.5,
+            cbar_kws={"shrink": .8},
+            annot_kws={"size": 10}
+        )
+        
+        plt.title('Pauline Letters Similarity Heatmap', fontsize=16)
+        plt.tight_layout()
+        
+        heatmap_path = os.path.join(self.visualizations_dir, 'similarity_heatmap.png')
+        plt.savefig(heatmap_path, dpi=300)
+        plt.close()
+        
+        # Create network visualization
+        net = Network(height="900px", width="100%", notebook=False, directed=False)
+        net.barnes_hut(gravity=-5000, central_gravity=0.3, spring_length=150, spring_strength=0.05)
+        
+        # Add nodes with cluster colors
+        unique_labels = np.unique(labels)
+        colors = plt.cm.viridis(np.linspace(0, 1, len(unique_labels)))
+        
+        for i, name in enumerate(manuscript_names):
+            cluster_id = labels[i]
+            color = '#{:02x}{:02x}{:02x}'.format(
+                int(colors[cluster_id][0] * 255),
+                int(colors[cluster_id][1] * 255),
+                int(colors[cluster_id][2] * 255)
+            )
+            
+            # Calculate node size based on manuscript length (normalized)
+            
+            # Add the node with label, title, and color
+            net.add_node(
+                name, 
+                label=letter_labels[name], 
+                title=f"{letter_labels[name]} (Cluster {cluster_id})", 
+                color=color,
+                size=40,
+                font={'size': 18, 'face': 'serif', 'color': 'black'}
+            )
+        
+        # Add edges for similarities above threshold
+        for i, name1 in enumerate(manuscript_names):
+            for j, name2 in enumerate(manuscript_names):
+                if i < j:
+                    similarity = similarity_df.iloc[i, j]
+                    if similarity >= threshold:
+                        width = similarity * 8  # Scale width by similarity
+                        edge_color = '#{:02x}{:02x}{:02x}'.format(
+                            int(255 * min(1, max(0, (similarity - threshold) / (1 - threshold)))),
+                            int(255 * min(1, max(0, (similarity - threshold) / (1 - threshold)))),
+                            0
+                        )
+                        net.add_edge(
+                            name1, 
+                            name2, 
+                            value=width, 
+                            title=f"Similarity: {similarity:.4f}",
+                            color=edge_color
+                        )
+        
+        # Configure the physics
+        net.show_buttons(filter_=['physics'])
+        
+        network_path = os.path.join(self.visualizations_dir, 'manuscript_network.html')
+        net.save_graph(network_path)
+        
+        return {
+            'mds': mds_path,
+            'tsne': tsne_path,
+            'heatmap': heatmap_path,
+            'network': network_path
+        }
     
     def visualize_similarity_heatmap(self, 
                                     similarity_df: pd.DataFrame, 
@@ -676,68 +861,237 @@ class MultipleManuscriptComparison:
         plt.savefig(output_path, dpi=300, bbox_inches='tight')
         plt.close()
     
-    def compare_multiple_manuscripts(self,
-                                   manuscript_paths: List[str],
-                                   manuscript_names: Optional[List[str]] = None,
+    def compare_multiple_manuscripts(self, manuscripts: Dict[str, str], 
+                                   method: str = 'hierarchical',
                                    n_clusters: int = 3,
-                                   clustering_method: str = 'hierarchical',
-                                   similarity_threshold: float = 0.5) -> Dict[str, Any]:
-        """Run the complete comparison pipeline."""
-        # Process manuscripts and extract features
-        print("Processing manuscripts and extracting features...")
-        preprocessed_data = {}
-        features_data = {}
+                                   min_samples: int = 2,
+                                   eps: float = 0.5,
+                                   use_advanced_nlp: bool = False) -> Dict[str, Any]:
+        """
+        Compare multiple manuscripts and analyze their relationships.
         
-        for i, path in enumerate(manuscript_paths):
-            name = manuscript_names[i] if manuscript_names else f"Manuscript_{i+1}"
-            preprocessed = self.preprocessor.preprocess_file(path)
-            features = self.feature_extractor.extract_all_features(preprocessed)
+        Args:
+            manuscripts: Dictionary mapping manuscript IDs to their texts
+            method: Clustering method ('hierarchical', 'kmeans', or 'dbscan')
+            n_clusters: Number of clusters for hierarchical/kmeans
+            min_samples: Minimum samples for DBSCAN
+            eps: Maximum distance between samples for DBSCAN
+            use_advanced_nlp: Whether to use advanced NLP features
             
-            preprocessed_data[name] = preprocessed
-            features_data[name] = features
+        Returns:
+            Dictionary with analysis results
+        """
+        print("Processing manuscripts and extracting features...")
         
+        # Extract the base letter name without chapter info (e.g., "ROM-075" from "ROM-075-1")
+        letter_texts = {}
+        for manuscript_id, text in manuscripts.items():
+            # Extract just the letter identifier without chapter numbers
+            letter_id = manuscript_id
+            if letter_id not in letter_texts:
+                letter_texts[letter_id] = text
+            else:
+                letter_texts[letter_id] += " " + text
+        
+        print(f"Analyzing {len(letter_texts)} complete letters (combined from chapters)")
+        
+        # Preprocess all letters (not individual chapters)
+        preprocessed = {}
+        for letter_id, text in tqdm(letter_texts.items()):
+            preprocessed[letter_id] = self.preprocessor.preprocess(text)
+        
+        # Fit TF-IDF vectorizer on all texts
+        normalized_texts = [
+            preprocessed[letter_id].get('normalized_text', ' '.join(preprocessed[letter_id]['words']))
+            for letter_id in letter_texts
+        ]
+        self.feature_extractor.fit(normalized_texts)
+        
+        # Extract features for each letter
+        features = {}
+        for letter_id in tqdm(letter_texts):
+            features[letter_id] = self.feature_extractor.extract_all_features(preprocessed[letter_id])
+            
         # Calculate similarity matrix
-        print("Calculating similarities...")
-        similarity_df = self.similarity_calculator.calculate_similarity_matrix(features_data)
+        similarity_matrix = self.calculate_similarity_matrix(features)
+        
+        # Save similarity matrix to disk for future reference
+        os.makedirs(self.output_dir, exist_ok=True)
+        similarity_matrix.to_csv(os.path.join(self.output_dir, "similarity_matrix.csv"))
+        try:
+            import pickle
+            with open(os.path.join(self.output_dir, "similarity_matrix.pkl"), "wb") as f:
+                pickle.dump(similarity_matrix, f)
+        except Exception as e:
+            print(f"Warning: Could not save pickle version of similarity matrix: {e}")
         
         # Perform clustering
-        print("Performing clustering analysis...")
-        clustering_result = self.cluster_manuscripts(
-            similarity_df,
+        clusters = self.cluster_manuscripts(
+            similarity_matrix,
             n_clusters=n_clusters,
-            method=clustering_method
+            method=method,
+            min_samples=min_samples,
+            eps=eps
         )
         
         # Generate visualizations
-        print("Generating visualizations...")
-        self.visualize_similarity_heatmap(similarity_df, clustering_result)
-        self.visualize_feature_distributions(features_data)
-        self.visualize_similarity_network(similarity_df, threshold=similarity_threshold)
+        visualizations = self.generate_visualizations(
+            clusters,
+            similarity_matrix,
+            threshold=0.5
+        )
         
-        # Generate summary tables
-        print("Generating summary reports...")
-        summary_table = self.generate_summary_table(features_data, similarity_df, clustering_result)
-        cluster_summary = self.generate_cluster_summary(clustering_result)
-        
-        # Save summaries to files
-        with open(os.path.join(self.output_dir, 'analysis_summary.txt'), 'w') as f:
-            f.write("MANUSCRIPT ANALYSIS SUMMARY\n")
-            f.write("=========================\n\n")
-            f.write("Detailed Results:\n")
-            f.write(summary_table)
-            f.write("\n\n")
-            f.write("Cluster Analysis:\n")
-            f.write(cluster_summary)
-        
-        print("\nAnalysis complete! Results saved to:")
-        print(f"- Summary tables: {self.output_dir}/analysis_summary.txt")
-        print(f"- Visualizations: {self.visualizations_dir}/")
+        # Generate report
+        report = self.generate_report(
+            clusters,
+            preprocessed,
+            features,
+            similarity_matrix
+        )
         
         return {
-            'preprocessed_data': preprocessed_data,
-            'features_data': features_data,
-            'similarity_matrix': similarity_df,
-            'clustering_result': clustering_result,
-            'summary_table': summary_table,
-            'cluster_summary': cluster_summary
-        } 
+            'preprocessed': preprocessed,
+            'features': features,
+            'similarity_matrix': similarity_matrix,
+            'clusters': clusters,
+            'visualizations': visualizations,
+            'report': report
+        }
+    
+    def generate_report(self, clustering_result: Dict[str, Any],
+                        preprocessed_data: Dict[str, Dict],
+                        features_data: Dict[str, Dict],
+                        similarity_df: pd.DataFrame) -> str:
+        """
+        Generate a detailed report of the analysis results.
+        
+        Args:
+            clustering_result: Dictionary with clustering results
+            preprocessed_data: Dictionary of preprocessed texts
+            features_data: Dictionary of extracted features
+            similarity_df: DataFrame with similarity matrix
+            
+        Returns:
+            Path to the generated report file
+        """
+        # Create output directory if it doesn't exist
+        os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Get clustering information
+        labels = clustering_result['labels']
+        manuscript_names = clustering_result['manuscript_names']
+        method = clustering_result['clustering_method']
+        
+        # Group manuscripts by cluster
+        clusters = defaultdict(list)
+        for i, name in enumerate(manuscript_names):
+            clusters[labels[i]].append(name)
+            
+        # Calculate cluster statistics
+        cluster_stats = {}
+        for cluster_id, members in clusters.items():
+            # Calculate within-cluster similarity
+            within_similarities = []
+            for i, name1 in enumerate(members):
+                for j, name2 in enumerate(members):
+                    if i < j:
+                        similarity = similarity_df.loc[name1, name2]
+                        within_similarities.append(similarity)
+            
+            # Calculate average word count for the cluster
+            word_counts = []
+            for name in members:
+                if 'words' in preprocessed_data[name]:
+                    word_counts.append(len(preprocessed_data[name]['words']))
+            
+            # Calculate average sentence length
+            sentence_lengths = []
+            for name in members:
+                if 'sentence_stats' in features_data[name]:
+                    lengths = features_data[name]['sentence_stats']['mean_sentence_length']
+                    sentence_lengths.append(lengths)
+            
+            # Store statistics
+            cluster_stats[cluster_id] = {
+                'members': members,
+                'size': len(members),
+                'avg_within_similarity': np.mean(within_similarities) if within_similarities else 0,
+                'min_within_similarity': np.min(within_similarities) if within_similarities else 0,
+                'max_within_similarity': np.max(within_similarities) if within_similarities else 0,
+                'avg_word_count': np.mean(word_counts) if word_counts else 0,
+                'avg_sentence_length': np.mean(sentence_lengths) if sentence_lengths else 0
+            }
+        
+        # Generate report text
+        report_path = os.path.join(self.output_dir, 'clustering_report.txt')
+        with open(report_path, 'w') as f:
+            f.write("Pauline Letters Stylometric Analysis Report\n")
+            f.write("=" * 60 + "\n\n")
+            
+            f.write(f"Analysis Method: {method.upper()}\n")
+            f.write(f"Number of Clusters: {len(clusters)}\n")
+            f.write(f"Total Letters Analyzed: {len(manuscript_names)}\n\n")
+            
+            # Overall similarity statistics
+            similarities = []
+            for i in range(len(manuscript_names)):
+                for j in range(i + 1, len(manuscript_names)):
+                    similarities.append(similarity_df.iloc[i, j])
+            
+            f.write("Overall Similarity Statistics:\n")
+            f.write("-" * 40 + "\n")
+            f.write(f"Average Similarity: {np.mean(similarities):.4f}\n")
+            f.write(f"Minimum Similarity: {np.min(similarities):.4f}\n")
+            f.write(f"Maximum Similarity: {np.max(similarities):.4f}\n")
+            f.write(f"Similarity Std Dev: {np.std(similarities):.4f}\n\n")
+            
+            # Cluster details
+            f.write("Cluster Analysis\n")
+            f.write("-" * 40 + "\n\n")
+            
+            for cluster_id, stats in cluster_stats.items():
+                f.write(f"Cluster {cluster_id}:\n")
+                f.write(f"  Members ({stats['size']}):\n")
+                for member in stats['members']:
+                    f.write(f"    - {member}\n")
+                
+                f.write("\n  Statistics:\n")
+                f.write(f"    Average Within-Cluster Similarity: {stats['avg_within_similarity']:.4f}\n")
+                f.write(f"    Min/Max Within-Cluster Similarity: {stats['min_within_similarity']:.4f} / {stats['max_within_similarity']:.4f}\n")
+                f.write(f"    Average Word Count: {stats['avg_word_count']:.1f}\n")
+                f.write(f"    Average Sentence Length: {stats['avg_sentence_length']:.2f}\n\n")
+            
+            # Between-cluster analysis
+            f.write("Between-Cluster Analysis\n")
+            f.write("-" * 40 + "\n\n")
+            
+            cluster_ids = sorted(clusters.keys())
+            for i, cluster1 in enumerate(cluster_ids):
+                for j, cluster2 in enumerate(cluster_ids):
+                    if i < j:
+                        # Calculate similarity between clusters
+                        between_similarities = []
+                        for name1 in clusters[cluster1]:
+                            for name2 in clusters[cluster2]:
+                                similarity = similarity_df.loc[name1, name2]
+                                between_similarities.append(similarity)
+                        
+                        avg_similarity = np.mean(between_similarities)
+                        min_similarity = np.min(between_similarities)
+                        max_similarity = np.max(between_similarities)
+                        
+                        f.write(f"Cluster {cluster1} <--> Cluster {cluster2}:\n")
+                        f.write(f"  Average Similarity: {avg_similarity:.4f}\n")
+                        f.write(f"  Min/Max Similarity: {min_similarity:.4f} / {max_similarity:.4f}\n\n")
+            
+            # Interpretation guidelines
+            f.write("\nInterpretation Guidelines\n")
+            f.write("-" * 40 + "\n")
+            f.write("Similarity Scores:\n")
+            f.write("  0.8 - 1.0: Very High Similarity (likely same author/very close relationship)\n")
+            f.write("  0.6 - 0.8: High Similarity (strong stylistic connection)\n")
+            f.write("  0.4 - 0.6: Moderate Similarity (some stylistic overlap)\n")
+            f.write("  0.2 - 0.4: Low Similarity (limited stylistic connection)\n")
+            f.write("  0.0 - 0.2: Very Low Similarity (distinct styles)\n")
+        
+        return report_path 
