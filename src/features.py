@@ -103,18 +103,23 @@ class FeatureExtractor:
                 'std_sentence_length': 0,
                 'min_sentence_length': 0,
                 'max_sentence_length': 0,
-                'sentence_length_variance': 0
+                'sentence_length_variance': 0,
+                'length_variance_normalized': 0
             }
             
         sentence_lengths = [len(sentence) for sentence in tokenized_sentences]
         
+        mean_length = float(np.mean(sentence_lengths))
+        variance = float(np.var(sentence_lengths))
+        
         return {
-            'mean_sentence_length': float(np.mean(sentence_lengths)),
+            'mean_sentence_length': mean_length,
             'median_sentence_length': float(np.median(sentence_lengths)),
             'std_sentence_length': float(np.std(sentence_lengths)),
             'min_sentence_length': float(min(sentence_lengths)),
             'max_sentence_length': float(max(sentence_lengths)),
-            'sentence_length_variance': float(np.var(sentence_lengths))
+            'sentence_length_variance': variance,
+            'length_variance_normalized': variance / (mean_length**2 + 1e-10)  # Normalized variance
         }
     
     def calculate_vocabulary_richness(self, tokens: List[str]) -> Dict[str, float]:

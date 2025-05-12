@@ -1,0 +1,284 @@
+New Testament Stylometric Analysis Report
+============================================================
+
+Analysis Method: HIERARCHICAL
+Number of Clusters: 8
+Total Books Analyzed: 27
+
+Overall Similarity Statistics:
+----------------------------------------
+Average Similarity: -0.0066
+Minimum Similarity: -0.8471
+Maximum Similarity: 0.9101
+Similarity Std Dev: 0.4821
+
+Cluster Analysis
+----------------------------------------
+
+Cluster 2:
+  Members (7):
+    - 1 Corinthians (1CO)
+    - Mark (MRK)
+    - Acts (ACT)
+    - John (JHN)
+    - Luke (LUK)
+    - Matthew (MAT)
+    - James (JAS)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.6994
+    Min/Max Within-Cluster Similarity: 0.4264 / 0.9101
+    Average Word Count: 13799.0
+    Average Sentence Length: 21.93
+
+Cluster 3:
+  Members (2):
+    - Galatians (GAL)
+    - Romans (ROM)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.8078
+    Min/Max Within-Cluster Similarity: 0.8078 / 0.8078
+    Average Word Count: 5017.0
+    Average Sentence Length: 22.77
+
+Cluster 0:
+  Members (7):
+    - 2 Corinthians (2CO)
+    - Philemon (PHM)
+    - Colossians (COL)
+    - 1 Thessalonians (1TH)
+    - 2 Thessalonians (2TH)
+    - Ephesians (EPH)
+    - 2 Peter (2PE)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.5828
+    Min/Max Within-Cluster Similarity: 0.2394 / 0.7948
+    Average Word Count: 1872.9
+    Average Sentence Length: 40.59
+
+Cluster 5:
+  Members (2):
+    - Philippians (PHP)
+    - Hebrews (HEB)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.6656
+    Min/Max Within-Cluster Similarity: 0.6656 / 0.6656
+    Average Word Count: 3580.5
+    Average Sentence Length: 34.50
+
+Cluster 1:
+  Members (6):
+    - Titus (TIT)
+    - 1 Timothy (1TI)
+    - 2 Timothy (2TI)
+    - 1 Peter (1PE)
+    - Revelation (REV)
+    - 1 John (1JN)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.6350
+    Min/Max Within-Cluster Similarity: 0.2817 / 0.8148
+    Average Word Count: 3076.2
+    Average Sentence Length: 29.88
+
+Cluster 6:
+  Members (1):
+    - Jude (JUD)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.0000
+    Min/Max Within-Cluster Similarity: 0.0000 / 0.0000
+    Average Word Count: 498.0
+    Average Sentence Length: 29.29
+
+Cluster 4:
+  Members (1):
+    - 2 John (2JN)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.0000
+    Min/Max Within-Cluster Similarity: 0.0000 / 0.0000
+    Average Word Count: 265.0
+    Average Sentence Length: 29.44
+
+Cluster 7:
+  Members (1):
+    - 3 John (3JN)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.0000
+    Min/Max Within-Cluster Similarity: 0.0000 / 0.0000
+    Average Word Count: 237.0
+    Average Sentence Length: 15.80
+
+Between-Cluster Analysis
+----------------------------------------
+
+Cluster 0 <--> Cluster 1:
+  Average Similarity: -0.4442
+  Min/Max Similarity: -0.8052 / 0.2278
+
+Cluster 0 <--> Cluster 2:
+  Average Similarity: -0.5670
+  Min/Max Similarity: -0.8471 / 0.1998
+
+Cluster 0 <--> Cluster 3:
+  Average Similarity: -0.1230
+  Min/Max Similarity: -0.4358 / 0.5293
+
+Cluster 0 <--> Cluster 4:
+  Average Similarity: -0.1758
+  Min/Max Similarity: -0.5490 / 0.1489
+
+Cluster 0 <--> Cluster 5:
+  Average Similarity: 0.2798
+  Min/Max Similarity: -0.2572 / 0.6273
+
+Cluster 0 <--> Cluster 6:
+  Average Similarity: -0.3651
+  Min/Max Similarity: -0.5580 / 0.0546
+
+Cluster 0 <--> Cluster 7:
+  Average Similarity: -0.2344
+  Min/Max Similarity: -0.4818 / -0.0678
+
+Cluster 1 <--> Cluster 2:
+  Average Similarity: 0.2457
+  Min/Max Similarity: -0.4138 / 0.7233
+
+Cluster 1 <--> Cluster 3:
+  Average Similarity: -0.3453
+  Min/Max Similarity: -0.5611 / -0.0727
+
+Cluster 1 <--> Cluster 4:
+  Average Similarity: 0.2245
+  Min/Max Similarity: 0.0969 / 0.3092
+
+Cluster 1 <--> Cluster 5:
+  Average Similarity: 0.1475
+  Min/Max Similarity: -0.2523 / 0.5730
+
+Cluster 1 <--> Cluster 6:
+  Average Similarity: 0.4418
+  Min/Max Similarity: 0.2840 / 0.5570
+
+Cluster 1 <--> Cluster 7:
+  Average Similarity: -0.1330
+  Min/Max Similarity: -0.3275 / 0.1628
+
+Cluster 2 <--> Cluster 3:
+  Average Similarity: 0.4468
+  Min/Max Similarity: 0.0997 / 0.7679
+
+Cluster 2 <--> Cluster 4:
+  Average Similarity: -0.1458
+  Min/Max Similarity: -0.4031 / 0.0250
+
+Cluster 2 <--> Cluster 5:
+  Average Similarity: -0.5014
+  Min/Max Similarity: -0.7924 / -0.0994
+
+Cluster 2 <--> Cluster 6:
+  Average Similarity: 0.1890
+  Min/Max Similarity: -0.0466 / 0.4412
+
+Cluster 2 <--> Cluster 7:
+  Average Similarity: 0.1450
+  Min/Max Similarity: -0.2140 / 0.4605
+
+Cluster 3 <--> Cluster 4:
+  Average Similarity: -0.3458
+  Min/Max Similarity: -0.5020 / -0.1896
+
+Cluster 3 <--> Cluster 5:
+  Average Similarity: -0.5954
+  Min/Max Similarity: -0.6564 / -0.5332
+
+Cluster 3 <--> Cluster 6:
+  Average Similarity: -0.0032
+  Min/Max Similarity: -0.0655 / 0.0591
+
+Cluster 3 <--> Cluster 7:
+  Average Similarity: 0.3837
+  Min/Max Similarity: 0.2634 / 0.5039
+
+Cluster 4 <--> Cluster 5:
+  Average Similarity: 0.1683
+  Min/Max Similarity: 0.0246 / 0.3120
+
+Cluster 4 <--> Cluster 6:
+  Average Similarity: 0.2669
+  Min/Max Similarity: 0.2669 / 0.2669
+
+Cluster 4 <--> Cluster 7:
+  Average Similarity: 0.2350
+  Min/Max Similarity: 0.2350 / 0.2350
+
+Cluster 5 <--> Cluster 6:
+  Average Similarity: -0.1994
+  Min/Max Similarity: -0.3018 / -0.0969
+
+Cluster 5 <--> Cluster 7:
+  Average Similarity: -0.2423
+  Min/Max Similarity: -0.3052 / -0.1793
+
+Cluster 6 <--> Cluster 7:
+  Average Similarity: 0.0853
+  Min/Max Similarity: 0.0853 / 0.0853
+
+
+Interpretation Guidelines
+----------------------------------------
+Similarity Scores:
+  0.8 - 1.0: Very High Similarity (likely same author/very close relationship)
+  0.6 - 0.8: High Similarity (strong stylistic connection)
+  0.4 - 0.6: Moderate Similarity (some stylistic overlap)
+  0.2 - 0.4: Low Similarity (limited stylistic connection)
+  0.0 - 0.2: Very Low Similarity (distinct styles)
+
+Pauline vs Non-Pauline Distribution Analysis
+----------------------------------------
+Distribution of Pauline books across clusters:
+  Cluster 2:
+    Pauline books: 1 of 13 total Pauline books
+    Non-Pauline books: 6 of 14 total non-Pauline books
+    Percentage Pauline: 14.3%
+
+  Cluster 3:
+    Pauline books: 2 of 13 total Pauline books
+    Non-Pauline books: 0 of 14 total non-Pauline books
+    Percentage Pauline: 100.0%
+
+  Cluster 0:
+    Pauline books: 6 of 13 total Pauline books
+    Non-Pauline books: 1 of 14 total non-Pauline books
+    Percentage Pauline: 85.7%
+
+  Cluster 5:
+    Pauline books: 1 of 13 total Pauline books
+    Non-Pauline books: 1 of 14 total non-Pauline books
+    Percentage Pauline: 50.0%
+
+  Cluster 1:
+    Pauline books: 3 of 13 total Pauline books
+    Non-Pauline books: 3 of 14 total non-Pauline books
+    Percentage Pauline: 50.0%
+
+  Cluster 6:
+    Pauline books: 0 of 13 total Pauline books
+    Non-Pauline books: 1 of 14 total non-Pauline books
+    Percentage Pauline: 0.0%
+
+  Cluster 4:
+    Pauline books: 0 of 13 total Pauline books
+    Non-Pauline books: 1 of 14 total non-Pauline books
+    Percentage Pauline: 0.0%
+
+  Cluster 7:
+    Pauline books: 0 of 13 total Pauline books
+    Non-Pauline books: 1 of 14 total non-Pauline books
+    Percentage Pauline: 0.0%
+

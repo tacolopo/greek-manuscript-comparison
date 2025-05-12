@@ -1,0 +1,90 @@
+New Testament Stylometric Analysis Report
+============================================================
+
+Analysis Method: HIERARCHICAL
+Number of Clusters: 3
+Total Books Analyzed: 3
+
+Overall Similarity Statistics:
+----------------------------------------
+Average Similarity: 0.0000
+Minimum Similarity: 0.0000
+Maximum Similarity: 0.0000
+Similarity Std Dev: 0.0000
+
+Cluster Analysis
+----------------------------------------
+
+Cluster 2:
+  Members (1):
+    - Romans (ROM)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.0000
+    Min/Max Within-Cluster Similarity: 0.0000 / 0.0000
+    Average Word Count: 7609.0
+    Average Sentence Length: 23.48
+
+Cluster 1:
+  Members (1):
+    - 1 Corinthians (1CO)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.0000
+    Min/Max Within-Cluster Similarity: 0.0000 / 0.0000
+    Average Word Count: 7395.0
+    Average Sentence Length: 20.48
+
+Cluster 0:
+  Members (1):
+    - Galatians (GAL)
+
+  Statistics:
+    Average Within-Cluster Similarity: 0.0000
+    Min/Max Within-Cluster Similarity: 0.0000 / 0.0000
+    Average Word Count: 2425.0
+    Average Sentence Length: 22.05
+
+Between-Cluster Analysis
+----------------------------------------
+
+Cluster 0 <--> Cluster 1:
+  Average Similarity: 0.0000
+  Min/Max Similarity: 0.0000 / 0.0000
+
+Cluster 0 <--> Cluster 2:
+  Average Similarity: 0.0000
+  Min/Max Similarity: 0.0000 / 0.0000
+
+Cluster 1 <--> Cluster 2:
+  Average Similarity: 0.0000
+  Min/Max Similarity: 0.0000 / 0.0000
+
+
+Interpretation Guidelines
+----------------------------------------
+Similarity Scores:
+  0.8 - 1.0: Very High Similarity (likely same author/very close relationship)
+  0.6 - 0.8: High Similarity (strong stylistic connection)
+  0.4 - 0.6: Moderate Similarity (some stylistic overlap)
+  0.2 - 0.4: Low Similarity (limited stylistic connection)
+  0.0 - 0.2: Very Low Similarity (distinct styles)
+
+Pauline vs Non-Pauline Distribution Analysis
+----------------------------------------
+Distribution of Pauline books across clusters:
+  Cluster 2:
+    Pauline books: 1 of 3 total Pauline books
+    Non-Pauline books: 0 of 0 total non-Pauline books
+    Percentage Pauline: 100.0%
+
+  Cluster 1:
+    Pauline books: 1 of 3 total Pauline books
+    Non-Pauline books: 0 of 0 total non-Pauline books
+    Percentage Pauline: 100.0%
+
+  Cluster 0:
+    Pauline books: 1 of 3 total Pauline books
+    Non-Pauline books: 0 of 0 total non-Pauline books
+    Percentage Pauline: 100.0%
+

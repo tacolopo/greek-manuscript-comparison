@@ -31,37 +31,51 @@ class MultipleManuscriptComparison:
     """Compare multiple Greek manuscripts simultaneously."""
     
     def __init__(self, 
-                 use_advanced_nlp: bool = True,
-                 output_dir: str = 'output',
-                 visualizations_dir: str = 'visualizations'):
+                 use_advanced_nlp: bool = False, 
+                 output_dir: str = "output", 
+                 visualizations_dir: str = "visualizations",
+                 similarity_calculator: Optional[SimilarityCalculator] = None):
         """
-        Initialize the multiple manuscript comparison.
+        Initialize the comparison object.
         
         Args:
             use_advanced_nlp: Whether to use advanced NLP features
             output_dir: Directory to save output files
-            visualizations_dir: Directory to save visualizations
+            visualizations_dir: Directory to save visualization files
+            similarity_calculator: Optional custom similarity calculator
         """
-        self.use_advanced_nlp = use_advanced_nlp
         self.output_dir = output_dir
         self.visualizations_dir = visualizations_dir
-        
-        # Create output directories
         os.makedirs(output_dir, exist_ok=True)
         os.makedirs(visualizations_dir, exist_ok=True)
         
-        # Initialize components
-        self.preprocessor = GreekTextPreprocessor()
-        self.feature_extractor = FeatureExtractor()
-        self.similarity_calculator = SimilarityCalculator()
+        # Initialize preprocessor
+        self.preprocessor = GreekTextPreprocessor(remove_stopwords=False, 
+                                                normalize_accents=True, 
+                                                lowercase=True)
         
-        # Initialize advanced NLP processor if requested
+        # Initialize feature extractor
+        self.feature_extractor = FeatureExtractor()
+        
+        # Initialize similarity calculator (or use provided one)
+        self.similarity_calculator = similarity_calculator or SimilarityCalculator()
+        
+        # Advanced NLP processor
         self.advanced_processor = None
         if use_advanced_nlp:
             try:
+                from .advanced_nlp import AdvancedGreekProcessor
                 self.advanced_processor = AdvancedGreekProcessor()
-            except Exception as e:
-                warnings.warn(f"Error initializing advanced NLP processor: {e}. Advanced NLP features will not be available.")
+                
+                # Connect advanced processor to preprocessor for proper NLP feature extraction
+                self.preprocessor.advanced_processor = self.advanced_processor
+                
+                print("Successfully initialized advanced NLP processor")
+            except ImportError as e:
+                warnings.warn(f"Could not initialize advanced NLP processor: {e}")
+        
+        # For displaying book names
+        self.display_names = {}
     
     def preprocess_manuscripts(self, 
                               manuscript_paths: List[str], 
@@ -106,39 +120,81 @@ class MultipleManuscriptComparison:
     
     def extract_features(self, preprocessed_data: Dict[str, Dict]) -> Dict[str, Dict]:
         """
-        Extract features from preprocessed manuscripts.
+        Extract features from preprocessed documents.
         
         Args:
-            preprocessed_data: Dictionary of preprocessed manuscripts
+            preprocessed_data: Dictionary mapping names to preprocessed documents
             
         Returns:
-            Dictionary mapping manuscript names to extracted features
+            Dictionary mapping names to extracted features
         """
-        features_data = {}
+        features = {}
         
-        # Extract features for each manuscript
-        for name, preprocessed in tqdm(preprocessed_data.items(), 
-                                      desc="Extracting features", 
-                                      total=len(preprocessed_data)):
+        # First pass - collect all texts for TF-IDF fitting
+        all_texts = []
+        for name, preprocessed in preprocessed_data.items():
+            if 'words' in preprocessed:
+                all_texts.append(' '.join(preprocessed['words']))
+        
+        # Fit the TF-IDF vectorizer on all texts
+        self.vectorizer.fit(all_texts)
+        
+        # Second pass - extract features for each document
+        for name, preprocessed in preprocessed_data.items():
             try:
-                # Extract basic features
-                features = self.feature_extractor.extract_all_features(preprocessed)
-                features_data[name] = features
+                doc_features = {}
                 
-                # Add advanced syntactic features if available
-                if self.advanced_processor and 'nlp_features' in preprocessed and 'pos_tags' in preprocessed['nlp_features']:
-                    try:
-                        syntactic_features = self.advanced_processor.extract_syntactic_features(
-                            preprocessed['nlp_features']['pos_tags']
-                        )
-                        features['syntactic_features'] = syntactic_features
-                    except Exception as e:
-                        warnings.warn(f"Error extracting syntactic features for {name}: {e}")
+                # Extract vocabulary features
+                if 'words' in preprocessed:
+                    words = preprocessed['words']
+                    # TF-IDF already fitted in the first pass
+                    tfidf_matrix = self.vectorizer.transform([' '.join(words)])
+                    vocab_features = self.extract_vocabulary_features(words, tfidf_matrix)
+                    doc_features.update(vocab_features)
                 
+                # Extract sentence-level features
+                if 'sentences' in preprocessed:
+                    sentences = preprocessed['sentences']
+                    sent_features = self.extract_sentence_features(sentences)
+                    doc_features.update(sent_features)
+                
+                # Extract transition pattern features
+                if 'words' in preprocessed and 'sentences' in preprocessed:
+                    transition_features = self.extract_transition_features(
+                        words=preprocessed['words'],
+                        sentences=preprocessed['sentences']
+                    )
+                    doc_features['transition_patterns'] = transition_features
+                
+                # Extract n-gram features
+                if 'words' in preprocessed:
+                    doc_features['word_bigrams'] = self.extract_ngrams(preprocessed['words'], n=2)
+                    doc_features['word_trigrams'] = self.extract_ngrams(preprocessed['words'], n=3)
+                
+                # Add advanced NLP features if available and enabled
+                if self.use_advanced_nlp and 'nlp_features' in preprocessed:
+                    # Add syntactic features from POS tags
+                    if 'pos_tags' in preprocessed['nlp_features']:
+                        try:
+                            syntactic_features = self.advanced_processor.extract_syntactic_features(
+                                preprocessed['nlp_features']['pos_tags']
+                            )
+                            
+                            # Debug print
+                            if len(syntactic_features) > 5:  # Check if using extended features
+                                print(f"DEBUG: {name} has {len(syntactic_features)} syntactic features")
+                                print(f"First few features: {list(syntactic_features.items())[:3]}")
+                            
+                            doc_features['syntactic_features'] = syntactic_features
+                        except Exception as e:
+                            print(f"Warning: Error extracting syntactic features for {name}: {e}")
+                
+                features[name] = doc_features
             except Exception as e:
+                import warnings
                 warnings.warn(f"Error extracting features for manuscript {name}: {e}")
-        
-        return features_data
+                    
+        return features
     
     def calculate_similarity_matrix(self, features: Dict[str, Dict]) -> pd.DataFrame:
         """

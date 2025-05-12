@@ -1,0 +1,178 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 900px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+             #config {
+                 float: left;
+                 width: 400px;
+                 height: 600px;
+             }
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+            <div id="config"></div>
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1CO", "label": "1 Corinthians", "shape": "dot", "size": 40, "title": "1 Corinthians (Cluster 1)"}, {"color": "#fde724", "font": {"color": "black", "face": "serif", "size": 18}, "id": "GAL", "label": "Galatians", "shape": "dot", "size": 40, "title": "Galatians (Cluster 7)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "ROM", "label": "Romans", "shape": "dot", "size": 40, "title": "Romans (Cluster 1)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2CO", "label": "2 Corinthians", "shape": "dot", "size": 40, "title": "2 Corinthians (Cluster 1)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "PHM", "label": "Philemon", "shape": "dot", "size": 40, "title": "Philemon (Cluster 0)"}, {"color": "#277e8e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "PHP", "label": "Philippians", "shape": "dot", "size": 40, "title": "Philippians (Cluster 3)"}, {"color": "#365b8c", "font": {"color": "black", "face": "serif", "size": 18}, "id": "TIT", "label": "Titus", "shape": "dot", "size": 40, "title": "Titus (Cluster 2)"}, {"color": "#277e8e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "COL", "label": "Colossians", "shape": "dot", "size": 40, "title": "Colossians (Cluster 3)"}, {"color": "#277e8e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1TH", "label": "1 Thessalonians", "shape": "dot", "size": 40, "title": "1 Thessalonians (Cluster 3)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2TH", "label": "2 Thessalonians", "shape": "dot", "size": 40, "title": "2 Thessalonians (Cluster 0)"}, {"color": "#365b8c", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1TI", "label": "1 Timothy", "shape": "dot", "size": 40, "title": "1 Timothy (Cluster 2)"}, {"color": "#365b8c", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2TI", "label": "2 Timothy", "shape": "dot", "size": 40, "title": "2 Timothy (Cluster 2)"}, {"color": "#277e8e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "EPH", "label": "Ephesians", "shape": "dot", "size": 40, "title": "Ephesians (Cluster 3)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "MRK", "label": "Mark", "shape": "dot", "size": 40, "title": "Mark (Cluster 1)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "ACT", "label": "Acts", "shape": "dot", "size": 40, "title": "Acts (Cluster 1)"}, {"color": "#49c16d", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1PE", "label": "1 Peter", "shape": "dot", "size": 40, "title": "1 Peter (Cluster 5)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "JHN", "label": "John", "shape": "dot", "size": 40, "title": "John (Cluster 1)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "LUK", "label": "Luke", "shape": "dot", "size": 40, "title": "Luke (Cluster 1)"}, {"color": "#9fd938", "font": {"color": "black", "face": "serif", "size": 18}, "id": "HEB", "label": "Hebrews", "shape": "dot", "size": 40, "title": "Hebrews (Cluster 6)"}, {"color": "#1fa187", "font": {"color": "black", "face": "serif", "size": 18}, "id": "REV", "label": "Revelation", "shape": "dot", "size": 40, "title": "Revelation (Cluster 4)"}, {"color": "#46317e", "font": {"color": "black", "face": "serif", "size": 18}, "id": "MAT", "label": "Matthew", "shape": "dot", "size": 40, "title": "Matthew (Cluster 1)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "JUD", "label": "Jude", "shape": "dot", "size": 40, "title": "Jude (Cluster 0)"}, {"color": "#49c16d", "font": {"color": "black", "face": "serif", "size": 18}, "id": "JAS", "label": "James", "shape": "dot", "size": 40, "title": "James (Cluster 5)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2JN", "label": "2 John", "shape": "dot", "size": 40, "title": "2 John (Cluster 0)"}, {"color": "#1fa187", "font": {"color": "black", "face": "serif", "size": 18}, "id": "1JN", "label": "1 John", "shape": "dot", "size": 40, "title": "1 John (Cluster 4)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "3JN", "label": "3 John", "shape": "dot", "size": 40, "title": "3 John (Cluster 0)"}, {"color": "#440154", "font": {"color": "black", "face": "serif", "size": 18}, "id": "2PE", "label": "2 Peter", "shape": "dot", "size": 40, "title": "2 Peter (Cluster 0)"}]);
+                  edges = new vis.DataSet([{"color": "#b4b400", "from": "1CO", "title": "Similarity: 0.8546", "to": "ROM", "value": 6.836709849451543}, {"color": "#5f5f00", "from": "1CO", "title": "Similarity: 0.6873", "to": "2CO", "value": 5.498616897094152}, {"color": "#838300", "from": "1CO", "title": "Similarity: 0.7575", "to": "MRK", "value": 6.059915704490653}, {"color": "#646400", "from": "1CO", "title": "Similarity: 0.6979", "to": "ACT", "value": 5.582850695660358}, {"color": "#666600", "from": "1CO", "title": "Similarity: 0.7013", "to": "JHN", "value": 5.610408889991232}, {"color": "#6a6a00", "from": "1CO", "title": "Similarity: 0.7085", "to": "LUK", "value": 5.667779753944313}, {"color": "#020200", "from": "1CO", "title": "Similarity: 0.5043", "to": "HEB", "value": 4.0344896811272}, {"color": "#656500", "from": "1CO", "title": "Similarity: 0.6989", "to": "MAT", "value": 5.591479835055391}, {"color": "#1b1b00", "from": "GAL", "title": "Similarity: 0.5545", "to": "ROM", "value": 4.436346714901619}, {"color": "#2c2c00", "from": "GAL", "title": "Similarity: 0.5879", "to": "2CO", "value": 4.702812126246951}, {"color": "#050500", "from": "GAL", "title": "Similarity: 0.5106", "to": "JAS", "value": 4.0846144661026}, {"color": "#787800", "from": "ROM", "title": "Similarity: 0.7367", "to": "2CO", "value": 5.893821489595789}, {"color": "#474700", "from": "ROM", "title": "Similarity: 0.6396", "to": "MRK", "value": 5.116542689316445}, {"color": "#575700", "from": "ROM", "title": "Similarity: 0.6723", "to": "ACT", "value": 5.378102033261694}, {"color": "#525200", "from": "ROM", "title": "Similarity: 0.6618", "to": "JHN", "value": 5.294064101946484}, {"color": "#4b4b00", "from": "ROM", "title": "Similarity: 0.6484", "to": "LUK", "value": 5.186883370050683}, {"color": "#121200", "from": "ROM", "title": "Similarity: 0.5358", "to": "HEB", "value": 4.286711932234734}, {"color": "#484800", "from": "ROM", "title": "Similarity: 0.6430", "to": "MAT", "value": 5.144136657514249}, {"color": "#141400", "from": "2CO", "title": "Similarity: 0.5404", "to": "EPH", "value": 4.323472489733471}, {"color": "#161600", "from": "2CO", "title": "Similarity: 0.5434", "to": "HEB", "value": 4.347401282886687}, {"color": "#414100", "from": "PHM", "title": "Similarity: 0.6283", "to": "2TH", "value": 5.02666528111579}, {"color": "#040400", "from": "PHM", "title": "Similarity: 0.5085", "to": "JUD", "value": 4.0679704460014054}, {"color": "#797900", "from": "PHM", "title": "Similarity: 0.7377", "to": "2JN", "value": 5.901435241875227}, {"color": "#727200", "from": "PHM", "title": "Similarity: 0.7237", "to": "3JN", "value": 5.789259730677822}, {"color": "#242400", "from": "PHM", "title": "Similarity: 0.5722", "to": "2PE", "value": 4.577492348964873}, {"color": "#959500", "from": "PHP", "title": "Similarity: 0.7939", "to": "COL", "value": 6.350998254994426}, {"color": "#252500", "from": "PHP", "title": "Similarity: 0.5744", "to": "1TH", "value": 4.594936838164377}, {"color": "#515100", "from": "PHP", "title": "Similarity: 0.6589", "to": "1TI", "value": 5.271216087341166}, {"color": "#7e7e00", "from": "PHP", "title": "Similarity: 0.7487", "to": "2TI", "value": 5.989525653703378}, {"color": "#606000", "from": "PHP", "title": "Similarity: 0.6884", "to": "EPH", "value": 5.5073230203760914}, {"color": "#6b6b00", "from": "TIT", "title": "Similarity: 0.7106", "to": "1TI", "value": 5.684684918406665}, {"color": "#737300", "from": "TIT", "title": "Similarity: 0.7266", "to": "2TI", "value": 5.812829726651085}, {"color": "#434300", "from": "TIT", "title": "Similarity: 0.6329", "to": "JUD", "value": 5.063437157004301}, {"color": "#040400", "from": "COL", "title": "Similarity: 0.5087", "to": "1TH", "value": 4.069731951453997}, {"color": "#505000", "from": "COL", "title": "Similarity: 0.6588", "to": "1TI", "value": 5.270427719366198}, {"color": "#424200", "from": "COL", "title": "Similarity: 0.6296", "to": "2TI", "value": 5.036593655584263}, {"color": "#303000", "from": "COL", "title": "Similarity: 0.5951", "to": "EPH", "value": 4.761139273600957}, {"color": "#838300", "from": "1TH", "title": "Similarity: 0.7585", "to": "EPH", "value": 6.068105864055149}, {"color": "#383800", "from": "2TH", "title": "Similarity: 0.6114", "to": "JUD", "value": 4.890874602116268}, {"color": "#404000", "from": "2TH", "title": "Similarity: 0.6269", "to": "2PE", "value": 5.015495571201034}, {"color": "#b9b900", "from": "1TI", "title": "Similarity: 0.8630", "to": "2TI", "value": 6.904280182460997}, {"color": "#1f1f00", "from": "2TI", "title": "Similarity: 0.5619", "to": "1PE", "value": 4.494952313234745}, {"color": "#030300", "from": "2TI", "title": "Similarity: 0.5059", "to": "JAS", "value": 4.047075119892897}, {"color": "#757500", "from": "MRK", "title": "Similarity: 0.7304", "to": "ACT", "value": 5.843115692589288}, {"color": "#797900", "from": "MRK", "title": "Similarity: 0.7383", "to": "JHN", "value": 5.90633606709825}, {"color": "#c6c600", "from": "MRK", "title": "Similarity: 0.8893", "to": "LUK", "value": 7.114103087491713}, {"color": "#282800", "from": "MRK", "title": "Similarity: 0.5787", "to": "REV", "value": 4.629328755961519}, {"color": "#9a9a00", "from": "MRK", "title": "Similarity: 0.8022", "to": "MAT", "value": 6.417606723195579}, {"color": "#5d5d00", "from": "ACT", "title": "Similarity: 0.6838", "to": "JHN", "value": 5.470664782075418}, {"color": "#9f9f00", "from": "ACT", "title": "Similarity: 0.8135", "to": "LUK", "value": 6.508015697435569}, {"color": "#353500", "from": "ACT", "title": "Similarity: 0.6058", "to": "HEB", "value": 4.846726571223359}, {"color": "#8a8a00", "from": "ACT", "title": "Similarity: 0.7723", "to": "MAT", "value": 6.178646562912003}, {"color": "#272700", "from": "1PE", "title": "Similarity: 0.5784", "to": "JUD", "value": 4.627095276763823}, {"color": "#848400", "from": "1PE", "title": "Similarity: 0.7607", "to": "JAS", "value": 6.08552510895008}, {"color": "#3e3e00", "from": "1PE", "title": "Similarity: 0.6225", "to": "2PE", "value": 4.979775848508693}, {"color": "#939300", "from": "JHN", "title": "Similarity: 0.7900", "to": "LUK", "value": 6.319751881956739}, {"color": "#121200", "from": "JHN", "title": "Similarity: 0.5357", "to": "REV", "value": 4.285584012911542}, {"color": "#c5c500", "from": "JHN", "title": "Similarity: 0.8871", "to": "MAT", "value": 7.096809798649646}, {"color": "#646400", "from": "JHN", "title": "Similarity: 0.6961", "to": "1JN", "value": 5.568758799921696}, {"color": "#b8b800", "from": "LUK", "title": "Similarity: 0.8618", "to": "MAT", "value": 6.894585218434781}, {"color": "#020200", "from": "REV", "title": "Similarity: 0.5041", "to": "MAT", "value": 4.032930898528755}, {"color": "#8c8c00", "from": "REV", "title": "Similarity: 0.7759", "to": "1JN", "value": 6.207253962605558}, {"color": "#2e2e00", "from": "MAT", "title": "Similarity: 0.5921", "to": "1JN", "value": 4.736640433412595}, {"color": "#202000", "from": "JUD", "title": "Similarity: 0.5646", "to": "3JN", "value": 4.516441159004589}, {"color": "#282800", "from": "JUD", "title": "Similarity: 0.5795", "to": "2PE", "value": 4.6359126157261805}, {"color": "#000000", "from": "JAS", "title": "Similarity: 0.5016", "to": "2PE", "value": 4.012667079205701}, {"color": "#888800", "from": "2JN", "title": "Similarity: 0.7675", "to": "3JN", "value": 6.13982005424946}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": true,
+        "filter": [
+            "physics"
+        ]
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "barnesHut": {
+            "avoidOverlap": 0,
+            "centralGravity": 0.3,
+            "damping": 0.09,
+            "gravitationalConstant": -5000,
+            "springConstant": 0.05,
+            "springLength": 150
+        },
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+                  // if this network requires displaying the configure window,
+                  // put it in its div
+                  options.configure["container"] = document.getElementById("config");
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>
