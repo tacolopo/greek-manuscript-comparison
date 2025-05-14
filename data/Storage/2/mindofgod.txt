@@ -1,0 +1,151 @@
+Abstract. An argument is presented showing that, on the assumption of Molinism, counterfactuals of
+free human behavior must be explanatorily prior to God’s sovereign decree to create these humans, or
+God becomes the author of evil. But, it is claimed, this explanatory order of God’s actions is logically
+incoherent, since to know what a human would do in any given circumstance requires the full knowledge
+of their character, and thus the being necessarily exists in the mind of God prior to the knowledge of their
+counterfactuals and their physical existence, refuting the basis of Molinistic libertarian free will and
+divine benevolence.
+Christian theology has a storied history of debating the coexistence of divine
+omniscience and omnipotence with divine benevolence and human free will. The
+basic problem is that if God has perfect knowledge of the future, and decides to
+materialize the world in his mind, he is the author of evil and humans are unable to
+deviate from His will. These are conflated issues so we can separate them and
+briefly look at each independently. The schematic of the origin of evil can be
+ordered as such:
+1) God, in His omnipotence, can create any world He desires.
+2) God desires to create Earth beginning with Adam and Eve.
+3) His omniscience means He knows that if He creates Adam and Eve with the
+composition He desires, they will disobey Him and sin.
+4) God creates this world, with the foreknowledge of their fall.
+5) Given premise (1) that God could create any world with any characteristics, but that
+He (2) created humans with a composition capable of (3) sin, and then (4) foresaw this
+sin yet created such a world anyways, God is the author of evil.
+Various reconciliatory attempts were made in early Christianity to explain the
+origins of evil, yet many contemporary reformed theologians continue to assert:
+Adam and Eve were not created fallen. They had no sin nature. They were good creatures
+with a free will. Yet they chose to sin. Why? I don’t know. Nor have I found anyone yet
+who does know. In spite of this excruciating problem we still must affirm that God is not
+the author of sin...I know that God ordained the Fall, but I do not know how this
+ordination enabled Adam and his descendants to fall into sin without the Lord himself
+being the direct, culpable agent for the Fall.1
+1 R.C. Sproul, Chosen by God, Tyndale Elevate (April 6, 2021), pp. 17, 166.
+A schematic of the conflict between divine omniscience and free will is related, but
+more succinctly ordered:
+1) God’s omniscience means he foreknows every decision that would be made any
+potential world.
+2) God materialized our world knowing exactly what would happen.
+3) For God to know what would happen in our world, premise (1 & 2), requires Him to
+fix decisions in time, consequently there is no ability to deviate from this foreordination,
+or God would have knowledge of it. There is thus no libertarian free will.
+This schematic can be epitomized by Augustine’s distinction between free
+will and liberty, and was generally accepted until the counter-reformation.2
+In the sixteenth century, Luis De Molina, attempting to rescue libertarian freedom
+from reformed theological conceptions of divine providence, devised a schema
+about the knowledge God possesses prior to creation. In modern terminology,
+Molina posited that in addition to God’s natural knowledge, knowledge about
+necessary truths, and free knowledge, His perfect foreknowledge of the future in
+the materialized world, He also possesses middle knowledge, which is what any
+creature would freely do in any given circumstances.3
+Middle knowledge is effectively “a knowledge of all the things that logically could
+happen”4 and is comprised of counterfactual statements, “a subjunctive conditional
+stating what would be done freely by a certain possible creature (or by more than
+one) under certain possible circumstances.”5
+Knowledge of counterfactuals enables God to create a world in which he
+foreordains His will through the use of libertarian free humans who are placed in
+circumstances where He knows they will freely choose His desired outcome.
+Beyond salvaging liberty, proponents claim it also solves the problem of the origin
+of evil, since humans are still the agents that freely bring evil into existence.
+The structured contemporary argument for Molinism is such:6
+2 Boethius, The Consolation of Philosophy, Translated with an Introduction and Notes by Richard Green,
+Macmillan Publishing Company (1962), p. xix.
+3 Robert Merrihew Adams, “An Anit-Molinist Argument,” Philosophical Perspectives, 1991, Vol. 5, Philosophy
+of Religion (1991), p. 343.
+4 David Paul Hunt, “The ‘Foreknowledge Defense’,” International Journal for Philosophy of Religion, Aug.,
+1990, Vol. 28, No. 1 (Aug., 1990), pp. 2-3.
+5 Robert Merrihew Adams, p. 344, emphasis original to quotation.
+6 William Lane Craig, “On Behalf of a Molinist Perspective | Gracepoint Church - San Francisco,” Reasonable
+Faith, June 11, 2020.
+1) If there are true counterfactuals of creaturely freedom, then God knows these truths.
+2) There are true counterfactuals of creaturely freedom.
+3) If God knows true counterfactuals of creaturely freedom, God knows them either
+logically prior to the divine creative decree or only logically posterior to the divine
+creative decree.
+4) Counterfactuals of creaturely freedom cannot be known only logically posterior to the
+divine creative decree.
+5) From (1) and (2) it follows logically that God knows true counterfactuals of creaturely
+freedom.
+6) From (3) and (5) it follows logically that God knows true counterfactuals of creaturely
+freedom either logically prior to the divine creative decree or only logically posterior to
+the divine creative decree.
+7) From (4) and (6) it follows logically that God knows true counterfactuals of creaturely
+freedom logically prior to the divine creative decree.
+It is absolutely necessary to the Molinist that counterfactuals are true prior to the
+divine decree and not
+true only logically posterior to the divine decree because that makes God the author of
+evil. In that case, God is the one who determines how creatures would act in any of these
+circumstances and therefore, by the very nature of the case, these counterfactuals of
+creaturely freedom must be true if they are true logically prior to the divine decree.7
+Most critics of this formulation attack the apparent lack of grounding of the truth
+of these counterfactuals.8 This critique generally goes:
+1) If counterfactuals are true prior to the divine decree, they are not true based on the
+actions of the agent, since they are not yet created.
+2) For libertarian free will to exist, “God does not determine what free creatures would do
+in any situation in which they find themselves. He takes hands off, so to speak, and says,
+‘okay, you make the decision.’”9
+3) From premise (1) and (2) it logically follows that these truths have no grounding and
+cannot be said to exist, thus refuting the coherence of Molinism.
+7 Ibid.
+8 Robert Merrihew Adams, p. 345.
+9 William Lane Craig, “William Lane Craig vs James White - Calvinism vs Molinism on the Problem of Evil,”
+Premier Unbelievable, December 3, 2021.
+One can see how if the Molinist case was proper, the grounding objection would be
+a sufficient refutation, for claiming that God must be good is not philosophical
+justification for why counterfactuals must be true prior to creation.10
+Though the grounding objection is appealing, upon closer examination it is flawed
+in composition, yet generally correct in deduction, and Molinism is
+compositionally accurate, yet flawed in deduction.
+The true error of Molinism rests primarily in the nature of counterfactuals. The
+Molinist schema is sound because it is true that God does know counterfactuals
+prior to physical creation. It is unsound because it is not possible to know
+counterfactuals prior to the conception of the identical entity. Think of the
+counterfactual: “If Jenna was in love with Anthony, she would agree to marry
+him.” In order for something to be said about Jenna, there must be a Jenna.
+This is to say that regardless of the truth origins of counterfactuals, God’s
+knowledge of them are always explanatorily posterior to God’s mental creation of
+the agents, which is fatal to the Molinist argument.
+In addition to the middle knowledge proposed by Molinists, there must be a sub
+middle knowledge, which is the knowledge of the entities God desires to create.
+Think again to Jenna; there are a multitude of circumstances outside Jenna’s
+control which invariably determine the libertarian counterfactuals of her love. If
+Jenna was born to an aboriginal tribe in the Republic of the Congo, she would
+never meet Anthony. If she was 7 feet tall, and she prefers taller men, she would
+not love Anthony. If she were born with a desire for blonde haired men, she would
+not love Anthony. From these examples it can be seen that counterfactuals depend
+on the characteristics of the individual that God creates.
+For a counterfactual to have meaning, God first must conceive of an individual,
+with all of their characteristics and dispositions in tact. God then can decide how to
+place this individual in circumstances along with other pre-conceived individuals.
+This means that God’s mental creation would necessarily have to be identical to
+His physical creation; God thinks of a person, evaluates the feasibility of their
+integration into His plan, and would either change the individual’s characteristics,
+not integrate them, or use that exact conception. There is no coherent formulation
+where God logically knows counterfactuals of a non-conceived being. Is libertarian
+10 A distinction is made between philosophical validity and validity within a holistic Christian framework. If the
+Bible is viewed infallibly and it is determined to teach that God is good, than goodness does become a
+justifiable axiom.
+freedom maintained? Most likely not, and at the cost of God’s authorship of evil,
+making Molinism an untenable position for any conventional Christian.
+Interestingly, contemporary Molinists acknowledge this conceptional stage of
+God’s creation, but do not explain how mental creation is qualitatively different
+from physical creation in God’s culpability of evil.11
+The accurate reworking of the Molinist schema, and its refutation, is as follows:
+1) If there are true counterfactuals of creaturely freedom, then God knows these truths.
+2) There are true counterfactuals of creaturely freedom.
+3) If God knows true counterfactuals of creaturely freedom, God knows them either
+logically prior to the agent’s conception in God’s mind or only logically posterior.
+4) Counterfactuals of creaturely freedom cannot be known logically prior to God first
+conceiving of the creature.
+5) From (1) and (2) it follows logically that God knows true counterfactuals of creaturely
+freedom.
+6) From (3) and (5) it follows logically that God knows true counterfactuals of creaturely
+freedom logically posterior to His mental conception of a creature.

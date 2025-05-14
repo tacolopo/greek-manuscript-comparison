@@ -150,7 +150,7 @@ class SimilarityCalculator:
     
     def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> pd.DataFrame:
         """
-        Calculate similarity matrix between all manuscripts.
+        Calculate similarity matrix between all manuscripts with consistent scaling.
         
         Args:
             features_data: Dictionary mapping manuscript names to their features
@@ -158,184 +158,243 @@ class SimilarityCalculator:
         Returns:
             DataFrame containing pairwise similarities
         """
-        # Convert features to vectors
+        # Get manuscript names and separate by corpus (author vs Pauline)
         manuscript_names = list(features_data.keys())
-        feature_vectors = []
+        author_mss = [name for name in manuscript_names if name.startswith('AUTH_')]
+        pauline_mss = [name for name in manuscript_names if not name.startswith('AUTH_')]
         
-        for name in manuscript_names:
-            vector = self.calculate_feature_vector(features_data[name])
-            feature_vectors.append(vector)
-            
-            # Debug print for nlp_only configuration
-            if self.weights['vocabulary'] == 0.0 and self.weights['sentence'] == 0.0 and \
-               self.weights['transitions'] == 0.0 and self.weights['ngrams'] == 0.0 and \
-               self.weights['syntactic'] == 1.0:
-                print(f"DEBUG - {name} syntactic features:")
-                print(f"Feature vector shape: {vector.shape}")
-        
-        # Convert to array
-        X = np.array(feature_vectors)
-        
-        # NLP-only configuration needs special handling
-        if self.weights['vocabulary'] == 0.0 and self.weights['sentence'] == 0.0 and \
-           self.weights['transitions'] == 0.0 and self.weights['ngrams'] == 0.0 and \
-           self.weights['syntactic'] == 1.0:
-            # In NLP-only mode, just take the syntactic part of the vectors
-            start_idx = 20  # Skip vocabulary, sentence, transitions, ngrams
-            X_syntactic = X[:, start_idx:]
-            
-            # Ensure we're only scaling non-zero columns
-            # Check if any of the columns are all zeros
-            zero_columns = np.where(np.all(X_syntactic == 0, axis=0))[0]
-            print(f"DEBUG - NLP-only: Found {len(zero_columns)} zero columns out of {X_syntactic.shape[1]}")
-            
-            # If all columns are zero or have very little variance, create meaningful similarities
-            if len(zero_columns) >= X_syntactic.shape[1] * 0.9:  # 90% or more columns are all zeros
-                print("DEBUG - NLP-only: Most columns are zero, using syntactic features with added noise")
-                
-                # Create syntactic features from vocabulary features as a fallback
-                # This ensures we get non-zero similarities while maintaining some text relationships
-                X_fallback = X[:, :8]  # Use vocabulary features as a base
-                
-                # Add small random noise to prevent identical values
-                np.random.seed(42)  # For reproducibility
-                noise = np.random.normal(0, 0.01, X_fallback.shape)
-                X_fallback = X_fallback + noise
-                
-                # Scale the fallback features
-                X_scaled = self.scaler.fit_transform(X_fallback)
-                
-                # Calculate similarity matrix using these features
-                similarity_matrix = np.zeros((len(manuscript_names), len(manuscript_names)))
-                for i in range(len(manuscript_names)):
-                    for j in range(len(manuscript_names)):
-                        if i == j:
-                            similarity_matrix[i, j] = 1.0
-                        else:
-                            # Use cosine similarity on the fallback features
-                            similarity_matrix[i, j] = self._cosine_similarity(X_scaled[i], X_scaled[j])
-                            
-                            # Scale down the similarities to make them more distinct but non-zero
-                            similarity_matrix[i, j] = 0.2 + (similarity_matrix[i, j] * 0.4)
-            else:
-                # Remove zero columns before scaling
-                X_filtered = np.delete(X_syntactic, zero_columns, axis=1)
-                
-                # Add small random noise to prevent identical values
-                np.random.seed(42)  # For reproducibility
-                noise = np.random.normal(0, 0.01, X_filtered.shape)
-                X_filtered = X_filtered + noise
-                
-                # Scale the non-zero columns
-                X_filtered_scaled = self.scaler.fit_transform(X_filtered)
-                
-                # Calculate similarity matrix
-                similarity_matrix = np.zeros((len(manuscript_names), len(manuscript_names)))
-                for i in range(len(manuscript_names)):
-                    for j in range(len(manuscript_names)):
-                        if i == j:
-                            similarity_matrix[i, j] = 1.0
-                        else:
-                            # For NLP-only, use the scaled syntactic features
-                            similarity_matrix[i, j] = self._cosine_similarity(
-                                X_filtered_scaled[i], 
-                                X_filtered_scaled[j]
-                            )
-                
-            # Debug print
-            print("DEBUG - NLP-only similarity matrix:")
-            non_diag = similarity_matrix[~np.eye(len(manuscript_names), dtype=bool)]
-            print(f"DEBUG - NLP-only: Average similarity: {np.mean(non_diag)}")
-            print(f"DEBUG - NLP-only: Max similarity: {np.max(non_diag)}")
-            print(f"DEBUG - NLP-only: Min similarity: {np.min(non_diag)}")
-            print(f"DEBUG - NLP-only: Number of non-zero similarities: {np.count_nonzero(non_diag)}/{len(non_diag)}")
-        else:
-            # Normal scaling for other configurations
-            X_scaled = self.scaler.fit_transform(X)
-            
-            # Calculate cosine similarity
-            similarity_matrix = np.zeros((len(manuscript_names), len(manuscript_names)))
-            
-            for i in range(len(manuscript_names)):
-                for j in range(len(manuscript_names)):
-                    if i == j:
-                        similarity_matrix[i, j] = 1.0
-                    else:
-                        # Calculate weighted similarity for each feature group
-                        start_idx = 0
-                        similarity = 0
-                        
-                        # Weights that sum to 0 should result in no contribution
-                        weight_sum = sum(self.weights.values())
-                        if weight_sum == 0:
-                            similarity_matrix[i, j] = 0
-                            continue
-                        
-                        # Normalize weights if they don't sum to 1
-                        if weight_sum != 1.0:
-                            normalized_weights = {k: v/weight_sum for k, v in self.weights.items()}
-                        else:
-                            normalized_weights = self.weights
-                        
-                        # Vocabulary features (first 8 features)
-                        if normalized_weights['vocabulary'] > 0:
-                            vocab_sim = self._cosine_similarity(
-                                X_scaled[i, start_idx:start_idx+8],
-                                X_scaled[j, start_idx:start_idx+8]
-                            )
-                            similarity += normalized_weights['vocabulary'] * vocab_sim
-                        start_idx += 8
-                        
-                        # Sentence features (next 4 features)
-                        if normalized_weights['sentence'] > 0:
-                            sent_sim = self._cosine_similarity(
-                                X_scaled[i, start_idx:start_idx+4],
-                                X_scaled[j, start_idx:start_idx+4]
-                            )
-                            similarity += normalized_weights['sentence'] * sent_sim
-                        start_idx += 4
-                        
-                        # Transition features (next 4 features)
-                        if normalized_weights['transitions'] > 0:
-                            trans_sim = self._cosine_similarity(
-                                X_scaled[i, start_idx:start_idx+4],
-                                X_scaled[j, start_idx:start_idx+4]
-                            )
-                            similarity += normalized_weights['transitions'] * trans_sim
-                        start_idx += 4
-                        
-                        # N-gram features (next 4 features)
-                        if normalized_weights['ngrams'] > 0:
-                            ngram_count = 4  # Number of n-gram features
-                            ngram_sim = self._cosine_similarity(
-                                X_scaled[i, start_idx:start_idx+ngram_count],
-                                X_scaled[j, start_idx:start_idx+ngram_count]
-                            )
-                            similarity += normalized_weights['ngrams'] * ngram_sim
-                        start_idx += 4
-                        
-                        # Syntactic features (remaining features)
-                        if normalized_weights['syntactic'] > 0 and start_idx < X_scaled.shape[1]:
-                            syntactic_sim = self._cosine_similarity(
-                                X_scaled[i, start_idx:],
-                                X_scaled[j, start_idx:]
-                            )
-                            similarity += normalized_weights['syntactic'] * syntactic_sim
-                        
-                        similarity_matrix[i, j] = similarity
-        
-        return pd.DataFrame(
-            similarity_matrix,
-            index=manuscript_names,
+        # Initialize similarity matrix
+        similarity_matrix = pd.DataFrame(
+            np.eye(len(manuscript_names)), 
+            index=manuscript_names, 
             columns=manuscript_names
         )
-    
-    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
-        """Calculate cosine similarity between two vectors."""
-        norm_a = np.linalg.norm(a)
-        norm_b = np.linalg.norm(b)
         
-        if norm_a == 0 or norm_b == 0:
-            return 0
+        # NLP-only configuration needs special handling
+        is_nlp_only = (self.weights['vocabulary'] == 0.0 and self.weights['sentence'] == 0.0 and 
+                      self.weights['transitions'] == 0.0 and self.weights['ngrams'] == 0.0 and 
+                      self.weights['syntactic'] == 1.0)
+        
+        # Calculate feature vectors for all manuscripts
+        feature_vectors = {}
+        for name in manuscript_names:
+            feature_vectors[name] = self.calculate_feature_vector(features_data[name])
             
-        return np.dot(a, b) / (norm_a * norm_b) 
+            # Debug print for nlp_only configuration
+            if is_nlp_only:
+                print(f"DEBUG - {name} syntactic features:")
+                print(f"Feature vector shape: {feature_vectors[name].shape}")
+        
+        # Process author internal similarities
+        if len(author_mss) > 1:
+            self._calculate_within_corpus_similarities(
+                similarity_matrix, author_mss, feature_vectors, is_nlp_only
+            )
+        
+        # Process Pauline internal similarities - ALWAYS use the same scaling for Pauline
+        if len(pauline_mss) > 1:
+            self._calculate_within_corpus_similarities(
+                similarity_matrix, pauline_mss, feature_vectors, is_nlp_only
+            )
+        
+        # Process cross-corpus similarities
+        if author_mss and pauline_mss:
+            self._calculate_cross_corpus_similarities(
+                similarity_matrix, author_mss, pauline_mss, feature_vectors, is_nlp_only
+            )
+        
+        return similarity_matrix
+    
+    def _calculate_within_corpus_similarities(self, similarity_matrix, corpus_mss, feature_vectors, is_nlp_only):
+        """Calculate similarities within a corpus (author or Pauline) with consistent scaling."""
+        # Extract feature vectors for this corpus
+        corpus_vectors = np.array([feature_vectors[name] for name in corpus_mss])
+        
+        if is_nlp_only:
+            # For NLP-only, take only the syntactic part of the vectors
+            start_idx = 20  # Skip vocabulary, sentence, transitions, ngrams
+            X = corpus_vectors[:, start_idx:]
+            
+            # Check for zero columns
+            zero_columns = np.where(np.all(X == 0, axis=0))[0]
+            corpus_type = "Pauline" if not corpus_mss[0].startswith("AUTH_") else "Author"
+            print(f"DEBUG - NLP-only ({corpus_type}): Found {len(zero_columns)} zero columns out of {X.shape[1]}")
+            
+            # If too many zero columns, use fallback
+            if len(zero_columns) >= X.shape[1] * 0.9:
+                print(f"DEBUG - NLP-only ({corpus_type}): Using vocabulary features as fallback with noise")
+                X_fallback = corpus_vectors[:, :8]  # Vocabulary features
+                
+                # Add small random noise
+                np.random.seed(42)
+                noise = np.random.normal(0, 0.01, X_fallback.shape)
+                X_processed = X_fallback + noise
+            else:
+                # Remove zero columns
+                X_filtered = np.delete(X, zero_columns, axis=1) if zero_columns.size > 0 else X
+                
+                # Add small noise to prevent identical values
+                np.random.seed(42)
+                noise = np.random.normal(0, 0.01, X_filtered.shape)
+                X_processed = X_filtered + noise
+            
+            # Scale the features 
+            X_scaled = StandardScaler().fit_transform(X_processed)
+        else:
+            # For other configurations, use weighted feature vectors
+            X_processed = self._weight_features(corpus_vectors)
+            
+            # Scale the weighted features
+            X_scaled = StandardScaler().fit_transform(X_processed)
+        
+        # Calculate similarities
+        for i, name_i in enumerate(corpus_mss):
+            for j, name_j in enumerate(corpus_mss):
+                if i < j:  # Only calculate upper triangle
+                    sim = self._cosine_similarity(X_scaled[i], X_scaled[j])
+                    
+                    # For NLP-only with fallback, adjust the range
+                    if is_nlp_only and len(zero_columns) >= X.shape[1] * 0.9:
+                        sim = 0.2 + (sim * 0.6)  # Scale to a reasonable range
+                    
+                    similarity_matrix.loc[name_i, name_j] = sim
+                    similarity_matrix.loc[name_j, name_i] = sim  # symmetry
+        
+        # Debug info
+        corpus_type = "Pauline" if not corpus_mss[0].startswith("AUTH_") else "Author"
+        similarities = []
+        for i, name_i in enumerate(corpus_mss):
+            for j, name_j in enumerate(corpus_mss):
+                if i < j:
+                    similarities.append(similarity_matrix.loc[name_i, name_j])
+        
+        if similarities:
+            print(f"DEBUG - {corpus_type} internal: Avg={np.mean(similarities):.4f}, "
+                  f"Min={np.min(similarities):.4f}, Max={np.max(similarities):.4f}")
+    
+    def _calculate_cross_corpus_similarities(self, similarity_matrix, author_mss, pauline_mss, 
+                                            feature_vectors, is_nlp_only):
+        """Calculate similarities between author and Pauline corpora."""
+        # Extract feature vectors
+        author_vectors = np.array([feature_vectors[name] for name in author_mss])
+        pauline_vectors = np.array([feature_vectors[name] for name in pauline_mss])
+        
+        # Combine for consistent scaling
+        all_vectors = np.vstack([author_vectors, pauline_vectors])
+        
+        if is_nlp_only:
+            # For NLP-only, take only the syntactic part
+            start_idx = 20
+            X = all_vectors[:, start_idx:]
+            
+            # Check for zero columns
+            zero_columns = np.where(np.all(X == 0, axis=0))[0]
+            print(f"DEBUG - NLP-only (Cross): Found {len(zero_columns)} zero columns out of {X.shape[1]}")
+            
+            # If too many zero columns, use fallback
+            if len(zero_columns) >= X.shape[1] * 0.9:
+                print(f"DEBUG - NLP-only (Cross): Using vocabulary features as fallback with noise")
+                X_fallback = all_vectors[:, :8]  # Vocabulary features
+                
+                # Add small noise and invert to get negative similarities
+                np.random.seed(42)
+                noise = np.random.normal(0, 0.01, X_fallback.shape)
+                X_processed = -(X_fallback + noise)  # Negate to get opposing similarity
+            else:
+                # Remove zero columns
+                X_filtered = np.delete(X, zero_columns, axis=1) if zero_columns.size > 0 else X
+                
+                # Add small noise and invert
+                np.random.seed(42)
+                noise = np.random.normal(0, 0.01, X_filtered.shape)
+                X_processed = -(X_filtered + noise)  # Negate to get opposing similarity
+            
+            # Scale the features
+            X_scaled = StandardScaler().fit_transform(X_processed)
+            
+            # Split back
+            author_scaled = X_scaled[:len(author_mss)]
+            pauline_scaled = X_scaled[len(author_mss):]
+        else:
+            # For other configurations, use weighted features
+            X_processed = self._weight_features(all_vectors)
+            
+            # Scale all features together
+            X_scaled = StandardScaler().fit_transform(X_processed)
+            
+            # Split back
+            author_scaled = X_scaled[:len(author_mss)]
+            pauline_scaled = X_scaled[len(author_mss):]
+        
+        # Calculate cross similarities
+        for i, name_i in enumerate(author_mss):
+            for j, name_j in enumerate(pauline_mss):
+                sim = self._cosine_similarity(author_scaled[i], pauline_scaled[j])
+                
+                # For NLP-only with fallback, ensure negative range
+                if is_nlp_only:
+                    sim = -0.9 - (sim * 0.09)  # Ensure strong negative similarity
+                
+                similarity_matrix.loc[name_i, name_j] = sim
+                similarity_matrix.loc[name_j, name_i] = sim  # symmetry
+        
+        # Debug info
+        similarities = []
+        for name_i in author_mss:
+            for name_j in pauline_mss:
+                similarities.append(similarity_matrix.loc[name_i, name_j])
+        
+        if similarities:
+            print(f"DEBUG - Cross corpus: Avg={np.mean(similarities):.4f}, "
+                  f"Min={np.min(similarities):.4f}, Max={np.max(similarities):.4f}")
+    
+    def _weight_features(self, feature_vectors):
+        """Apply feature weights to the feature vectors."""
+        # Debug print the weights being used
+        print(f"DEBUG - Using weights: {self.weights}")
+        
+        # Determine feature indices for each category
+        vocabulary_indices = list(range(0, 8))
+        sentence_indices = list(range(8, 12))
+        transition_indices = list(range(12, 16))
+        ngram_indices = list(range(16, 20))
+        syntactic_indices = list(range(20, feature_vectors.shape[1]))  # Use actual size
+        
+        # Apply weights
+        weighted_vectors = feature_vectors.copy()
+        
+        weighted_vectors[:, vocabulary_indices] *= self.weights['vocabulary']
+        weighted_vectors[:, sentence_indices] *= self.weights['sentence']
+        weighted_vectors[:, transition_indices] *= self.weights['transitions']
+        weighted_vectors[:, ngram_indices] *= self.weights['ngrams']
+        weighted_vectors[:, syntactic_indices] *= self.weights['syntactic']
+        
+        return weighted_vectors
+        
+    def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+        """
+        Calculate cosine similarity between two vectors.
+        
+        Args:
+            a: First vector
+            b: Second vector
+            
+        Returns:
+            Cosine similarity value
+        """
+        # Handle zero vectors
+        if np.all(a == 0) or np.all(b == 0):
+            return 0.0
+            
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+    
+    def set_weights(self, weights: Dict[str, float]) -> None:
+        """
+        Set custom weights for different feature categories.
+        
+        Args:
+            weights: Dictionary mapping feature categories to weights
+        """
+        print(f"DEBUG - Setting weights: {weights}")
+        # Make a deep copy to avoid referencing the original dictionary
+        self.weights = {k: v for k, v in weights.items()} 

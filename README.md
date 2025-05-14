@@ -1,23 +1,32 @@
-# Greek Manuscript Comparison Tool
+# Greek Manuscript Comparison: Unbiased Stylometric Analysis of Pauline Letters
 
-This tool analyzes and compares Greek manuscripts to calculate similarity scores based on linguistic features. It uses various NLP techniques to identify patterns in language use, word choice, sentence structure, and other textual characteristics.
+This project conducts an unbiased stylometric analysis of Pauline letters in the New Testament, allowing natural stylistic patterns to emerge from the data without imposing predetermined categories such as "disputed" vs "undisputed" authorship.
 
-## Features
+## Project Overview
 
-- Text preprocessing for Greek manuscripts
-- Multiple similarity metrics (lexical, syntactic, semantic)
-- Visualization of similarity results
-- Support for various text formats
-- **Advanced NLP Features**:
-  - Part-of-speech tagging for Greek texts
-  - Syntactic parsing and analysis
-  - Semantic similarity using transformer models
-  - Word embedding analysis
-- **Multiple Manuscript Comparison**:
-  - Compare more than two manuscripts simultaneously
-  - Cluster manuscripts by similarity
-  - Generate interactive network visualizations
-  - Comprehensive cluster analysis reports
+Traditional approaches to Pauline authorship studies often begin with predetermined classifications, potentially introducing bias. This project takes a data-driven approach, using multidimensional scaling (MDS) and hierarchical clustering to identify natural stylistic relationships across five different feature weighting configurations:
+
+1. **Baseline**: Balanced weighting of all stylometric features
+2. **Vocabulary-Focused**: Emphasizes word choice and lexical features
+3. **Structure-Focused**: Prioritizes sentence patterns and structural elements
+4. **NLP-Only**: Focuses solely on linguistic and syntactic features
+5. **Equal Weights**: Assigns equal importance to all feature categories
+
+## Key Findings
+
+The analysis revealed several important insights:
+
+- **Consistent Groupings**: Some letter groups consistently cluster together across feature weightings:
+  - The major doctrinal letters (Romans, 1 & 2 Corinthians, Galatians) formed a remarkably stable group (4.5/5 configurations)
+  - The Pastoral Epistles (1 & 2 Timothy, Titus) showed strong stylistic affinity (4.3/5 configurations)
+
+- **Feature Sensitivity**: Feature weighting dramatically affected perceived relationships between letters. The same corpus analyzed with different feature weights produced significantly different stylistic groupings.
+
+- **Unstable Affiliations**: Some letters showed inconsistent cluster membership across different feature weightings:
+  - Philemon appeared in 4 different clusters, consistent with its unique nature as a brief, personal letter
+  - Letters like 1 Thessalonians, Philippians, and the Pastoral Epistles showed moderate instability
+
+- **Natural Stylistic Patterns**: Rather than confirming predetermined categories, the data revealed organic groupings that sometimes, but not always, aligned with traditional classifications.
 
 ## Installation
 
@@ -31,87 +40,63 @@ This tool analyzes and compares Greek manuscripts to calculate similarity scores
    python install_data.py
    ```
 
-## Usage
+## Key Scripts
 
-### Comparing Two Manuscripts
+### Primary Analysis Scripts
 
-1. Place your Greek manuscript text files in the `data` directory
-2. Run the comparison script:
-   ```
-   python src/compare_manuscripts.py --file1 data/manuscript1.txt --file2 data/manuscript2.txt
-   ```
-3. View the similarity report in the console output and generated visualizations
+- **unbiased_pauline_clustering.py**: Performs clustering analysis on Pauline letters without predetermined groupings, using 5 different feature weighting configurations.
+  ```
+  python unbiased_pauline_clustering.py
+  ```
 
-### Comparing Multiple Manuscripts
+- **improve_pauline_plots.py**: Enhances the visualizations with better labels and creates side-by-side comparisons.
+  ```
+  python improve_pauline_plots.py
+  ```
 
-1. Place multiple Greek manuscript text files in the `data` directory
-2. Run the multiple comparison script:
-   ```
-   python compare_multiple.py --dir data --clusters 3 --method hierarchical
-   ```
-3. Or use the sample texts:
-   ```
-   python compare_multiple.py --sample --clusters 2
-   ```
-4. View the cluster visualizations and reports in the output directory
+- **reorganize_analysis_files.py**: Organizes analysis files, moving biased analysis results to a legacy folder.
+  ```
+  python reorganize_analysis_files.py
+  ```
 
-### Command-line Options for Multiple Comparison
+### Output Directories
 
-```
-usage: compare_multiple.py [-h] (--files FILES [FILES ...] | --dir DIR | --pattern PATTERN | --sample) [--ext EXT]
-                          [--names NAMES [NAMES ...]] [--clusters CLUSTERS]
-                          [--method {kmeans,hierarchical,dbscan}] [--threshold THRESHOLD]
-                          [--advanced-nlp] [--output-dir OUTPUT_DIR] [--vis-dir VIS_DIR]
+- **pauline_analysis_unbiased/**: Contains the unbiased clustering analysis results
+- **pauline_enhanced_plots/**: Contains enhanced visualizations with clearer labels and side-by-side comparisons
+- **pauline_analysis/legacy_biased_analysis/**: Contains the old analysis that used predetermined disputed/undisputed groupings
 
-Compare multiple Greek manuscripts
+## Methodology
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --files FILES [FILES ...]
-                        List of manuscript files to compare
-  --dir DIR             Directory containing manuscript files to compare
-  --pattern PATTERN     Glob pattern to match manuscript files
-  --sample              Use sample manuscripts
-  --ext EXT             File extension for manuscripts (default: .txt)
-  --names NAMES [NAMES ...]
-                        Names for the manuscripts (must match number of files)
-  --clusters CLUSTERS   Number of clusters to create (default: 3)
-  --method {kmeans,hierarchical,dbscan}
-                        Clustering method (default: hierarchical)
-  --threshold THRESHOLD
-                        Similarity threshold for network visualization (default: 0.5)
-  --advanced-nlp        Use advanced NLP features
-  --output-dir OUTPUT_DIR
-                        Output directory (default: output)
-  --vis-dir VIS_DIR     Visualizations directory (default: visualizations)
-```
+The analysis follows these steps:
 
-## Similarity Metrics
+1. **Feature Extraction**: Calculate stylometric features from each Pauline letter, including:
+   - Lexical features (vocabulary richness, unique words, word frequencies)
+   - Syntactic features (sentence length, complexity, part-of-speech patterns)
+   - Semantic features (word embeddings, contextual relationships)
+   - Structural features (discourse markers, connectives, rhetorical elements)
 
-The tool calculates similarity using several approaches:
+2. **Similarity Calculation**: Compute pairwise similarities between letters using various metrics
 
-1. **Lexical Similarity**: Based on shared vocabulary and n-grams
-2. **Syntactic Similarity**: Based on sentence structure patterns
-3. **Semantic Similarity**: Based on contextual word usage
-4. **Stylometric Features**: Analysis of author-specific writing patterns
+3. **Multidimensional Scaling**: Visualize these similarities in 2D space
 
-## Advanced NLP Features
+4. **Hierarchical Clustering**: Identify natural groupings of letters based on stylistic similarities
 
-The advanced NLP module provides:
+5. **Cross-Configuration Analysis**: Compare clustering results across different feature weightings
 
-1. **Part-of-Speech Tagging**: Identify grammatical components in Greek texts
-2. **Syntactic Parsing**: Analyze sentence structure and dependencies
-3. **Semantic Analysis**: Measure semantic similarity using transformer models
-4. **Word Embeddings**: Analyze contextual relationships between words
+## Summary Reports
 
-## Multiple Manuscript Comparison
+- **unbiased_pauline_analysis_summary.md**: Comprehensive summary of the unbiased analysis
+- **pauline_analysis_unbiased/unbiased_cluster_report.md**: Detailed report of the clustering results
 
-The multiple comparison module allows:
+## Implications
 
-1. **Batch Processing**: Compare any number of manuscripts simultaneously
-2. **Clustering**: Group manuscripts by similarity using various algorithms
-3. **Interactive Visualization**: Network and cluster visualizations
-4. **Detailed Reports**: Comprehensive analysis of manuscript relationships
+This unbiased analysis challenges simplistic notions of clear stylistic boundaries between Pauline letters:
+
+1. **Methodological Impacts**: Feature selection dramatically affects results, highlighting how methodological choices influence stylometric conclusions.
+
+2. **Complex Stylistic Networks**: The data suggests complex stylistic relationships within the Pauline corpus that defy simple categorization.
+
+3. **Scientific Approach**: By avoiding predetermined categories, this analysis demonstrates a more scientifically sound approach to stylometric studies.
 
 ## License
 

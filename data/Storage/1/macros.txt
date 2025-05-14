@@ -1,0 +1,31 @@
+Macros are “a small program that is often written to automate repetitive tasks in Microsoft Office applications” (NCSC, n.d.). The use of macros in IT has somewhat declined over time due to the emergence of automated inventory tooling, but macros are still used frequently by HR and Finance departments, so there’s a high probability they are used in your environment if you work at a large organization.
+Task automation is convenient, but macros pose additional risk when enabled; “malicious macros can do almost anything that other malware can do to your system, including emulating ransomware, stealing data, and emailing itself out to your contacts” (NCSC, n.d.). Therefore, the premiere cybersecurity organization in the United Kingdom, the National Cyber Security Centre (NCSC), recommends completely disabling macros, stating, “The only effective way to protect your systems against malicious macros is to disable macros in all Office apps and ensure that users cannot re-enable them” (NCSC, n.d.).
+However, remember that the purpose of cybersecurity is to facilitate business operations. Security controls must “preserve the ability of the business to operate and grow; otherwise, they will be unnecessary, as the business is potentially headed for obsolescence” (Deane & Kraus, 2021, p. 364). So, if your organization uses macros, you are better off hardening the use of macros rather than disabling them.
+In this scenario, “for all installations of Microsoft Office,” the NCSC recommends the following controls for Windows (NCSC, n.d.). Microsoft also recommends these rules (Microsoft, n.d.).
+    • Block all Office applications from creating child processes
+    • Block execution of potentially obfuscated scripts
+    • Block JavaScript or VBScript from launching downloaded executable content
+    • Block Office applications from creating executable content
+    • Block Office communication application from creating child processes
+    • Block Win32 API calls from Office macros
+    • Use advanced protection against ransomware
+For on-premise deployments, all of these security settings can be configured through Attack Surface Reduction (ASR) Group Policy Objects (GPOs). These can be enabled by going to the Group Policy Management Editor, then Computer configuration > Administrative templates > Windows components > Microsoft Defender Antivirus > Microsoft Defender Exploit Guard > Attack surface reduction > Configure Attack surface reduction rules > select Enabled. Then, you can create the recommended sub-rules through the GUID for each control. All of the GUIDs are listed on this reference page (Microsoft, 2025).
+It is important to note that Defender must be your primary antivirus (AV) solution for these rules to be effective. If Defender isn’t your primary AV, you’ll need to explore workarounds with your current AV provider. For example, I’ve included potential compensating controls for Trellix Endpoint Security:
+    • Block all Office applications from creating child processes.
+Rule 309 in Adaptive Threat Protection (Goel, 2020)
+    • Block execution of potentially obfuscated scripts.
+This control is implemented through enhanced script scanning, which is enabled by default (Trellix, 2024). However, “Enable observe mode” is enabled by default and needs to be unchecked to enforce this policy (Trellix, 2024).
+    • Block JavaScript or VBScript from launching downloaded executable content.
+There is no direct implementation for this control. A compensating control is to enable Rule 323 in Adaptive Threat Protection to prevent mshta from being launched as a child process. According to McAfee, “attackers can use mshta.exe to execute malicious .hta files and JavaScript or VBScript” and “this rule will help to detect the malicious use cases” (Goel, 2020).
+    • Block Office applications from creating executable content.
+ENS doesn’t appear to have a preconfigured setting to enforce this rule, but it can be created through an Access Protection policy. In this rule, we would define the Office processes to include and then leverage Trellix’s “Application File Access Protection” to “block files based on the application that created them” which would be the Office applications (Trellix, 2022).
+    • Block Office communication applications from creating child processes.
+We can partially implement this through Rule 312 in Adaptive Threat Protection to “prevent email applications, such as Outlook, from spawning script editors and dual use tool” (Goel, 2020).
+    • Block Win32 API calls from Office macros.
+This does not appear to be directly supported in Trellix. This is somewhat challenging because it involves intra-process behavior calling low-level APIs. I would recommend no action since we cannot leverage the Defender setting.
+    • Use advanced protection against ransomware.
+Microsoft’s ASR rule “Use advanced protection against ransomware” uses cloud intelligence to block suspicious behavior. It’s ENS counterpart is encompassed through Adaptive Threat Protection’s “dynamic application containment of suspicious processes” (Stricher, 2021). McAfee specifically called out the following exploit and ATP rules to protect against ransomware (Stricher, 2021):
+1. Exploit 6113–6114–6115–6121 Fileless threat: self-injection
+2. Exploit 6116–6117–6122: Mimikatz suspicious activity
+3. ATP 316: Prevent PDF readers from starting cmd.exe
+4. ATP 502: Prevent new services from being created via sc.exe or powershell.exe
