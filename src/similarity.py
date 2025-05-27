@@ -189,7 +189,7 @@ class SimilarityCalculator:
         
         return weighted_vector
     
-    def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> pd.DataFrame:
+    def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> tuple:
         """
         Calculate similarity matrix between all manuscripts with consistent scaling.
         
@@ -197,7 +197,7 @@ class SimilarityCalculator:
             features_data: Dictionary mapping manuscript names to their features
             
         Returns:
-            DataFrame containing pairwise similarities
+            Tuple of (DataFrame containing pairwise similarities, Dict of feature vectors)
         """
         # Get manuscript names and separate by corpus (author vs Pauline)
         manuscript_names = list(features_data.keys())
@@ -245,7 +245,7 @@ class SimilarityCalculator:
                 similarity_matrix, author_mss, pauline_mss, feature_vectors, is_nlp_only
             )
         
-        return similarity_matrix
+        return similarity_matrix, feature_vectors
     
     def _calculate_within_corpus_similarities(self, similarity_matrix, corpus_mss, feature_vectors, is_nlp_only):
         """Calculate similarities within a single corpus (author or Pauline)."""
@@ -317,16 +317,6 @@ class SimilarityCalculator:
         # Combine all vectors for consistent scaling
         all_vectors = np.vstack([author_vectors, pauline_vectors])
         
-        # Find columns that are all zeros (no variance)
-        zero_columns = np.where(~all_vectors.any(axis=0))[0]
-        
-        # For NLP-only configuration, if all syntactic columns are zero, use vocabulary as fallback
-        if is_nlp_only and len(zero_columns) >= all_vectors.shape[1] * 0.9:
-            # Add small noise to differentiate
-            np.random.seed(42)
-            noise = np.random.normal(0, 0.01, all_vectors.shape)
-            all_vectors = -(all_vectors + noise)  # Negate to get opposing similarity
-        
         # For NLP-only analysis, don't normalize - preserve the actual feature magnitudes
         if is_nlp_only:
             normalized_author_vectors = [author_vectors[i] for i in range(len(author_mss))]
@@ -358,10 +348,6 @@ class SimilarityCalculator:
         for i, name_i in enumerate(author_mss):
             for j, name_j in enumerate(pauline_mss):
                 sim = self._cosine_similarity(normalized_author_vectors[i], normalized_pauline_vectors[j])
-                
-                # For NLP-only with fallback, ensure negative range
-                if is_nlp_only:
-                    sim = -0.9 - (sim * 0.09)  # Ensure strong negative similarity
                 
                 similarity_matrix.loc[name_i, name_j] = sim
                 similarity_matrix.loc[name_j, name_i] = sim  # symmetry
@@ -412,7 +398,7 @@ class SimilarityCalculator:
             max_possible_distance = np.linalg.norm(a) + np.linalg.norm(b)  # Maximum possible distance
             if max_possible_distance > 0:
                 normalized_distance = euclidean_dist / max_possible_distance
-                final_sim = np.exp(-3 * normalized_distance)  # Exponential decay
+                final_sim = np.exp(-5 * normalized_distance)  # Steeper exponential decay for better differentiation
             else:
                 final_sim = 1.0  # Identical zero vectors
         else:

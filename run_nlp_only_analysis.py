@@ -235,10 +235,14 @@ def main():
             sim_matrix.to_csv(matrix_csv_path)
             print(f"Similarity matrix saved to: {matrix_csv_path}")
         
-        # Save similarity matrix pickle
+        # Save similarity matrix pickle with feature vectors
         matrix_pkl_path = os.path.join(nlp_output_dir, 'similarity_matrix.pkl')
+        analysis_data = {
+            'similarity_matrix': sim_matrix,
+            'feature_vectors': comparison.feature_vectors if hasattr(comparison, 'feature_vectors') else {}
+        }
         with open(matrix_pkl_path, 'wb') as f:
-            pickle.dump(sim_matrix, f)
+            pickle.dump(analysis_data, f)
         
         # Save clustering result pickle
         result_pkl_path = os.path.join(nlp_output_dir, 'clustering_result.pkl')

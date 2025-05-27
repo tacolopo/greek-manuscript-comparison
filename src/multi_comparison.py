@@ -204,7 +204,12 @@ class MultipleManuscriptComparison:
             DataFrame containing pairwise similarities
         """
         # Use the similarity calculator's matrix calculation method directly
-        return self.similarity_calculator.calculate_similarity_matrix(features)
+        similarity_matrix, feature_vectors = self.similarity_calculator.calculate_similarity_matrix(features)
+        
+        # Store feature vectors for later access
+        self.feature_vectors = feature_vectors
+        
+        return similarity_matrix
     
     def cluster_manuscripts(self, 
                            similarity_df: pd.DataFrame, 
