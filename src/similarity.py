@@ -151,14 +151,20 @@ class SimilarityCalculator:
         print(f"DEBUG - Ngram features: {len(ngram_indices)}")
         print(f"DEBUG - Syntactic features: {len(syntactic_indices)}")
         
-        # First, normalize each feature group to have the same magnitude
-        # This ensures that larger feature groups don't dominate smaller ones
-        for indices in [vocabulary_indices, sentence_indices, transition_indices, ngram_indices, syntactic_indices]:
-            if indices and indices[-1] < len(feature_vector):
-                group_magnitude = np.linalg.norm(feature_vector[indices])
-                if group_magnitude > 0:
-                    # Normalize this group to have magnitude 1.0
-                    weighted_vector[indices] = feature_vector[indices] / group_magnitude
+        # Check if this is NLP-only configuration
+        is_nlp_only = (self.weights['vocabulary'] == 0.0 and self.weights['sentence'] == 0.0 and 
+                      self.weights['transitions'] == 0.0 and self.weights['ngrams'] == 0.0 and 
+                      self.weights['syntactic'] == 1.0)
+        
+        if not is_nlp_only:
+            # For mixed feature analysis, normalize each feature group to have the same magnitude
+            # This ensures that larger feature groups don't dominate smaller ones
+            for indices in [vocabulary_indices, sentence_indices, transition_indices, ngram_indices, syntactic_indices]:
+                if indices and indices[-1] < len(feature_vector):
+                    group_magnitude = np.linalg.norm(feature_vector[indices])
+                    if group_magnitude > 0:
+                        # Normalize this group to have magnitude 1.0
+                        weighted_vector[indices] = feature_vector[indices] / group_magnitude
         
         # Now apply the weights to the normalized feature groups
         for idx, weight_key, indices in [
@@ -259,19 +265,22 @@ class SimilarityCalculator:
             noise = np.random.normal(0, 0.01, corpus_vectors.shape)
             corpus_vectors = corpus_vectors + noise
         
-        # Instead of using StandardScaler which normalizes away the differences,
-        # use unit normalization to preserve the effects of weights
-        normalized_vectors = []
-        for i in range(len(corpus_mss)):
-            # Get the vector
-            vec = corpus_vectors[i]
-            
-            # Unit normalize the vector (this preserves the direction while making magnitude consistent)
-            norm = np.linalg.norm(vec)
-            if norm > 0:
-                normalized_vectors.append(vec / norm)
-            else:
-                normalized_vectors.append(vec)  # Keep zero vectors as is
+        # For NLP-only analysis, don't normalize - preserve the actual feature magnitudes
+        if is_nlp_only:
+            normalized_vectors = [corpus_vectors[i] for i in range(len(corpus_mss))]
+        else:
+            # For mixed feature analysis, use unit normalization to preserve the effects of weights
+            normalized_vectors = []
+            for i in range(len(corpus_mss)):
+                # Get the vector
+                vec = corpus_vectors[i]
+                
+                # Unit normalize the vector (this preserves the direction while making magnitude consistent)
+                norm = np.linalg.norm(vec)
+                if norm > 0:
+                    normalized_vectors.append(vec / norm)
+                else:
+                    normalized_vectors.append(vec)  # Keep zero vectors as is
         
         # Calculate similarities using the normalized vectors
         for i, name_i in enumerate(corpus_mss):
@@ -318,27 +327,32 @@ class SimilarityCalculator:
             noise = np.random.normal(0, 0.01, all_vectors.shape)
             all_vectors = -(all_vectors + noise)  # Negate to get opposing similarity
         
-        # Normalize vectors instead of using StandardScaler
-        normalized_author_vectors = []
-        normalized_pauline_vectors = []
-        
-        # Normalize author vectors
-        for i in range(len(author_mss)):
-            vec = author_vectors[i]
-            norm = np.linalg.norm(vec)
-            if norm > 0:
-                normalized_author_vectors.append(vec / norm)
-            else:
-                normalized_author_vectors.append(vec)
-        
-        # Normalize pauline vectors
-        for i in range(len(pauline_mss)):
-            vec = pauline_vectors[i]
-            norm = np.linalg.norm(vec)
-            if norm > 0:
-                normalized_pauline_vectors.append(vec / norm)
-            else:
-                normalized_pauline_vectors.append(vec)
+        # For NLP-only analysis, don't normalize - preserve the actual feature magnitudes
+        if is_nlp_only:
+            normalized_author_vectors = [author_vectors[i] for i in range(len(author_mss))]
+            normalized_pauline_vectors = [pauline_vectors[i] for i in range(len(pauline_mss))]
+        else:
+            # For mixed feature analysis, normalize vectors
+            normalized_author_vectors = []
+            normalized_pauline_vectors = []
+            
+            # Normalize author vectors
+            for i in range(len(author_mss)):
+                vec = author_vectors[i]
+                norm = np.linalg.norm(vec)
+                if norm > 0:
+                    normalized_author_vectors.append(vec / norm)
+                else:
+                    normalized_author_vectors.append(vec)
+            
+            # Normalize pauline vectors
+            for i in range(len(pauline_mss)):
+                vec = pauline_vectors[i]
+                norm = np.linalg.norm(vec)
+                if norm > 0:
+                    normalized_pauline_vectors.append(vec / norm)
+                else:
+                    normalized_pauline_vectors.append(vec)
         
         # Calculate cross similarities
         for i, name_i in enumerate(author_mss):
@@ -364,7 +378,7 @@ class SimilarityCalculator:
     
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """
-        Calculate cosine similarity between two vectors with additional scaling.
+        Calculate cosine similarity between two vectors.
         
         Args:
             a: First vector
@@ -382,17 +396,33 @@ class SimilarityCalculator:
         # Clip to ensure it's between -1 and 1
         similarity = np.clip(similarity, -1.0, 1.0)
         
-        # Scale the similarity to increase differentiation (using exponential scaling)
-        # This makes high similarities less extreme and stretches the middle range
-        # Convert from [-1, 1] to [0, 1] range
-        normalized_sim = (similarity + 1) / 2.0
+        # For NLP-only analysis, we want to preserve the raw differences
+        # Check if this is NLP-only configuration
+        is_nlp_only = (self.weights['vocabulary'] == 0.0 and self.weights['sentence'] == 0.0 and 
+                      self.weights['transitions'] == 0.0 and self.weights['ngrams'] == 0.0 and 
+                      self.weights['syntactic'] == 1.0)
         
-        # Apply exponential scaling to increase differentiation
-        # Using power of 3 to create more separation between similar texts
-        scaled_sim = normalized_sim ** 3
-        
-        # Convert back to [0, 1] range
-        final_sim = scaled_sim
+        if is_nlp_only:
+            # For NLP-only analysis, use Euclidean distance instead of cosine similarity
+            # This preserves both magnitude and direction differences
+            euclidean_dist = np.linalg.norm(a - b)
+            
+            # Convert distance to similarity (smaller distance = higher similarity)
+            # Use exponential decay to convert distance to similarity in [0, 1] range
+            max_possible_distance = np.linalg.norm(a) + np.linalg.norm(b)  # Maximum possible distance
+            if max_possible_distance > 0:
+                normalized_distance = euclidean_dist / max_possible_distance
+                final_sim = np.exp(-3 * normalized_distance)  # Exponential decay
+            else:
+                final_sim = 1.0  # Identical zero vectors
+        else:
+            # For mixed feature analysis, apply exponential scaling to increase differentiation
+            # Convert from [-1, 1] to [0, 1] range
+            normalized_sim = (similarity + 1) / 2.0
+            
+            # Apply exponential scaling to create more separation between similar texts
+            scaled_sim = normalized_sim ** 3
+            final_sim = scaled_sim
         
         # Ensure the result is in [0, 1] range
         final_sim = np.clip(final_sim, 0.0, 1.0)

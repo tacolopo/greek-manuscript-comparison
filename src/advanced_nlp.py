@@ -22,7 +22,7 @@ class AdvancedGreekProcessor:
         
         # Initialize spaCy
         try:
-            self.spacy_nlp = spacy.load("el_core_news_lg")
+            self.spacy_nlp = spacy.load("el_core_news_sm")
         except:
             print("Warning: Could not load Greek spaCy model. Some features will be limited.")
             self.spacy_nlp = None
@@ -140,7 +140,6 @@ class AdvancedGreekProcessor:
                 'particle_ratio': 0,
                 'interjection_ratio': 0,
                 'numeral_ratio': 0,
-                'punctuation_ratio': 0,
                 'tag_diversity': 0,
                 'tag_entropy': 0,
                 'noun_after_verb_ratio': 0,
@@ -196,15 +195,13 @@ class AdvancedGreekProcessor:
         part_tags = ['part', 'particle']
         intj_tags = ['intj', 'interjection']
         num_tags = ['num', 'numeral']
-        punct_tags = ['punct', 'punctuation']
         
         features.update({
             'pronoun_ratio': sum(tag_counts.get(tag, 0) for tag in pron_tags) / total_tags,
             'conjunction_ratio': sum(tag_counts.get(tag, 0) for tag in conj_tags) / total_tags,
             'particle_ratio': sum(tag_counts.get(tag, 0) for tag in part_tags) / total_tags,
             'interjection_ratio': sum(tag_counts.get(tag, 0) for tag in intj_tags) / total_tags,
-            'numeral_ratio': sum(tag_counts.get(tag, 0) for tag in num_tags) / total_tags,
-            'punctuation_ratio': sum(tag_counts.get(tag, 0) for tag in punct_tags) / total_tags
+            'numeral_ratio': sum(tag_counts.get(tag, 0) for tag in num_tags) / total_tags
         })
         
         # Calculate syntactic tag diversity

@@ -60,6 +60,9 @@ class MultipleManuscriptComparison:
         # Initialize similarity calculator (or use provided one)
         self.similarity_calculator = similarity_calculator or SimilarityCalculator()
         
+        # Store the use_advanced_nlp flag
+        self.use_advanced_nlp = use_advanced_nlp
+        
         # Advanced NLP processor
         self.advanced_processor = None
         if use_advanced_nlp:
@@ -137,7 +140,7 @@ class MultipleManuscriptComparison:
                 all_texts.append(' '.join(preprocessed['words']))
         
         # Fit the TF-IDF vectorizer on all texts
-        self.vectorizer.fit(all_texts)
+        self.feature_extractor.fit(all_texts)
         
         # Second pass - extract features for each document
         for name, preprocessed in preprocessed_data.items():
@@ -147,29 +150,27 @@ class MultipleManuscriptComparison:
                 # Extract vocabulary features
                 if 'words' in preprocessed:
                     words = preprocessed['words']
-                    # TF-IDF already fitted in the first pass
-                    tfidf_matrix = self.vectorizer.transform([' '.join(words)])
-                    vocab_features = self.extract_vocabulary_features(words, tfidf_matrix)
-                    doc_features.update(vocab_features)
+                    # Extract vocabulary features using the feature extractor
+                    vocab_features = self.feature_extractor.calculate_vocabulary_richness(words)
+                    doc_features['vocabulary_richness'] = vocab_features
                 
                 # Extract sentence-level features
                 if 'sentences' in preprocessed:
                     sentences = preprocessed['sentences']
-                    sent_features = self.extract_sentence_features(sentences)
-                    doc_features.update(sent_features)
+                    tokenized_sentences = [sentence.split() for sentence in sentences]
+                    sent_features = self.feature_extractor.calculate_sentence_length_stats(tokenized_sentences)
+                    doc_features['sentence_stats'] = sent_features
                 
                 # Extract transition pattern features
                 if 'words' in preprocessed and 'sentences' in preprocessed:
-                    transition_features = self.extract_transition_features(
-                        words=preprocessed['words'],
-                        sentences=preprocessed['sentences']
-                    )
+                    tokenized_sentences = [sentence.split() for sentence in preprocessed['sentences']]
+                    transition_features = self.feature_extractor.analyze_transition_patterns(tokenized_sentences)
                     doc_features['transition_patterns'] = transition_features
                 
                 # Extract n-gram features
                 if 'words' in preprocessed:
-                    doc_features['word_bigrams'] = self.extract_ngrams(preprocessed['words'], n=2)
-                    doc_features['word_trigrams'] = self.extract_ngrams(preprocessed['words'], n=3)
+                    doc_features['word_bigrams'] = self.feature_extractor.calculate_ngram_frequency(preprocessed['words'], n=2)
+                    doc_features['word_trigrams'] = self.feature_extractor.calculate_ngram_frequency(preprocessed['words'], n=3)
                 
                 # Add advanced NLP features if available and enabled
                 if self.use_advanced_nlp and 'nlp_features' in preprocessed:
@@ -179,15 +180,11 @@ class MultipleManuscriptComparison:
                             syntactic_features = self.advanced_processor.extract_syntactic_features(
                                 preprocessed['nlp_features']['pos_tags']
                             )
-                            
-                            # Debug print
-                            if len(syntactic_features) > 5:  # Check if using extended features
-                                print(f"DEBUG: {name} has {len(syntactic_features)} syntactic features")
-                                print(f"First few features: {list(syntactic_features.items())[:3]}")
-                            
                             doc_features['syntactic_features'] = syntactic_features
                         except Exception as e:
                             print(f"Warning: Error extracting syntactic features for {name}: {e}")
+                            import traceback
+                            traceback.print_exc()
                 
                 features[name] = doc_features
             except Exception as e:
@@ -1069,6 +1066,14 @@ class MultipleManuscriptComparison:
         preprocessed = {}
         for letter_id, text in tqdm(letter_texts.items()):
             preprocessed[letter_id] = self.preprocessor.preprocess(text)
+            
+            # Add advanced NLP features if available
+            if self.advanced_processor:
+                try:
+                    nlp_features = self.advanced_processor.process_document(text)
+                    preprocessed[letter_id]['nlp_features'] = nlp_features
+                except Exception as e:
+                    print(f"Warning: Error processing advanced NLP features for {letter_id}: {e}")
         
         # Fit TF-IDF vectorizer on all texts
         normalized_texts = [
@@ -1077,10 +1082,8 @@ class MultipleManuscriptComparison:
         ]
         self.feature_extractor.fit(normalized_texts)
         
-        # Extract features for each letter
-        features = {}
-        for letter_id in tqdm(letter_texts):
-            features[letter_id] = self.feature_extractor.extract_all_features(preprocessed[letter_id])
+        # Extract features for each letter using the proper method that handles advanced NLP
+        features = self.extract_features(preprocessed)
             
         # Calculate similarity matrix
         similarity_df = self.calculate_similarity_matrix(features)
