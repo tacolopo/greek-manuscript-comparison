@@ -277,7 +277,9 @@ class FeatureExtractor:
                 'length_transition_smoothness': 0,
                 'length_pattern_repetition': 0,
                 'clause_boundary_regularity': 0,
-                'sentence_rhythm_consistency': 0
+                'sentence_rhythm_consistency': 0,
+                'transition_ratio_variance': 0,  # New feature
+                'sentence_complexity_ratio': 0   # New feature
             }
 
         # Calculate sentence length transitions
@@ -285,6 +287,8 @@ class FeatureExtractor:
         length_patterns = []
         clause_positions = []
         rhythm_patterns = []
+        transition_ratios = []
+        complexity_scores = []
 
         for i, sentence in enumerate(tokenized_sentences):
             # Get sentence length
@@ -295,17 +299,43 @@ class FeatureExtractor:
             if i > 0:
                 prev_length = len(tokenized_sentences[i-1])
                 length_diffs.append(abs(current_length - prev_length))
+                
+                # Calculate transition ratio (relative change in length)
+                if prev_length > 0:
+                    transition_ratios.append(current_length / prev_length)
 
-            # Identify potential clause boundaries using punctuation
-            clause_positions.extend([
-                j/current_length for j, token in enumerate(sentence)
-                if any(p in token for p in [',', ';', ':', '.'])
-            ])
+            # Identify potential clause boundaries using punctuation and conjunctions
+            clause_boundary_markers = [',', ';', ':', '.', 'και', 'δε', 'γαρ', 'ουν']
+            
+            # Get positions of clause boundaries normalized by sentence length
+            if current_length > 0:
+                positions = []
+                for j, token in enumerate(sentence):
+                    if any(marker in token.lower() for marker in clause_boundary_markers):
+                        positions.append(j/current_length)
+                
+                # Only add if we found some boundaries
+                if positions:
+                    clause_positions.extend(positions)
+                    
+                    # Calculate complexity based on number of clauses per sentence length
+                    complexity_scores.append(len(positions) / current_length)
 
-            # Create rhythm pattern based on token lengths
-            rhythm = [len(token) for token in sentence]
-            if rhythm:
-                rhythm_patterns.append(np.std(rhythm))
+            # Create rhythm pattern based on token lengths and variance
+            if current_length > 0:
+                # Get lengths of words in the sentence
+                word_lengths = [len(token) for token in sentence if any(c.isalpha() for c in token)]
+                if word_lengths:
+                    # Calculate standard deviation of word lengths in this sentence
+                    length_std = np.std(word_lengths)
+                    # Calculate alternation pattern (differences between consecutive words)
+                    alternation = [abs(word_lengths[j] - word_lengths[j-1]) for j in range(1, len(word_lengths))]
+                    
+                    # Store both metrics in rhythm patterns
+                    if alternation:
+                        rhythm_patterns.append((length_std, np.mean(alternation)))
+                    else:
+                        rhythm_patterns.append((length_std, 0))
 
         features = {}
 
@@ -318,9 +348,14 @@ class FeatureExtractor:
         if len(length_patterns) > 1:
             # Use autocorrelation to detect patterns
             autocorr = np.correlate(length_patterns, length_patterns, mode='full')
-            features['length_pattern_repetition'] = float(
-                np.max(autocorr[len(autocorr)//2+1:]) / autocorr[len(autocorr)//2]
-            )
+            center_idx = len(autocorr)//2
+            if center_idx < len(autocorr) - 1:
+                max_corr = np.max(autocorr[center_idx+1:])
+                features['length_pattern_repetition'] = float(
+                    max_corr / autocorr[center_idx] if autocorr[center_idx] > 0 else 0
+                )
+            else:
+                features['length_pattern_repetition'] = 0
         else:
             features['length_pattern_repetition'] = 0
 
@@ -329,9 +364,25 @@ class FeatureExtractor:
             np.std(clause_positions) if clause_positions else 0
         )
 
-        # Measure consistency in sentence rhythm
-        features['sentence_rhythm_consistency'] = float(
-            np.std(rhythm_patterns) if rhythm_patterns else 0
+        # Measure consistency in sentence rhythm - use both metrics from rhythm_patterns
+        if rhythm_patterns:
+            std_values = [rp[0] for rp in rhythm_patterns]
+            alt_values = [rp[1] for rp in rhythm_patterns]
+            # Combine both metrics in a weighted manner
+            features['sentence_rhythm_consistency'] = float(
+                0.7 * np.std(std_values) + 0.3 * np.std(alt_values) if std_values and alt_values else 0
+            )
+        else:
+            features['sentence_rhythm_consistency'] = 0
+            
+        # New feature: variance in transition ratios (how consistently sentences change in length)
+        features['transition_ratio_variance'] = float(
+            np.var(transition_ratios) if transition_ratios else 0
+        )
+        
+        # New feature: average sentence complexity ratio
+        features['sentence_complexity_ratio'] = float(
+            np.mean(complexity_scores) if complexity_scores else 0
         )
 
         return features

@@ -25,128 +25,163 @@ class SimilarityCalculator:
     
     def calculate_feature_vector(self, features: Dict[str, Any]) -> np.ndarray:
         """
-        Convert features dictionary to numeric vector.
+        Calculate a feature vector from extracted features.
+        This applies the weights to feature groups.
         
         Args:
             features: Dictionary of extracted features
             
         Returns:
-            Numpy array of numeric features
+            Numpy array with feature vector
         """
-        feature_vector = []
-        
-        # Vocabulary features - these are already relative/normalized
-        vocab = features['vocabulary_richness']
-        feature_vector.extend([
-            vocab['unique_tokens_ratio'],
-            vocab['hapax_legomena_ratio'],
-            vocab['dis_legomena_ratio'],
-            vocab['yule_k'],
-            vocab['simpson_d'],
-            vocab['herdan_c'],
-            vocab['guiraud_r'],
-            vocab['sichel_s']
-        ])
-        
-        # Sentence features - normalize sentence length metrics
-        sent_stats = features['sentence_stats']
-        # We keep mean and median sentence length as they're stylistic choices
-        # But we normalize the std_dev by the mean to get coefficient of variation
-        # This makes the variation measure size-independent
-        sentence_cv = sent_stats['std_sentence_length'] / (sent_stats['mean_sentence_length'] + 1e-10)
-        feature_vector.extend([
-            sent_stats['mean_sentence_length'],
-            sent_stats['median_sentence_length'],
-            sentence_cv,  # Coefficient of variation instead of std
-            sent_stats['length_variance_normalized']  # Normalized variance
-        ])
-        
-        # Transition features - already normalized
-        transitions = features['transition_patterns']
-        feature_vector.extend([
-            transitions['length_transition_smoothness'],
-            transitions['length_pattern_repetition'],
-            transitions['clause_boundary_regularity'],
-            transitions['sentence_rhythm_consistency']
-        ])
-        
-        # N-gram features - using relative frequencies instead of counts
+        # Extract feature values in consistent order
+        vocabulary_features = []
+        sentence_features = []
+        transition_features = []
         ngram_features = []
-        for ngram_dict in [features['word_bigrams'], features['word_trigrams']]:
-            if ngram_dict and len(ngram_dict) > 0:
-                # Get normalized distribution shape metrics
-                values = list(ngram_dict.values())
-                total = sum(values) + 1e-10
-                normalized_values = [v/total for v in values]
-                ngram_features.extend([
-                    np.mean(normalized_values),
-                    np.std(normalized_values) / (np.mean(normalized_values) + 1e-10)  # Coefficient of variation
-                ])
-            else:
-                ngram_features.extend([0, 0])
-        feature_vector.extend(ngram_features)
+        syntactic_features = []
         
-        # Add syntactic features from advanced NLP if available
+        # Vocabulary richness features
+        if 'vocabulary_richness' in features:
+            richness = features['vocabulary_richness']
+            vocabulary_features.extend([
+                richness.get('ttr', 0),
+                richness.get('hapax_ratio', 0),
+                richness.get('yules_k', 0),
+                richness.get('simpsons_d', 0),
+                richness.get('entropy', 0),
+                richness.get('herdan_c', 0),
+                richness.get('summer_s', 0),
+                richness.get('orlov_z', 0)
+            ])
+        else:
+            vocabulary_features = [0] * 8
+        
+        # Sentence structure features
+        if 'sentence_stats' in features and 'sentence_complexity' in features:
+            sentence_stats = features['sentence_stats']
+            complexity = features['sentence_complexity']
+            
+            sentence_features.extend([
+                sentence_stats.get('avg_length', 0),
+                sentence_stats.get('std_length', 0),
+                complexity.get('avg_words_before_punct', 0),
+                complexity.get('punct_per_sentence', 0)
+            ])
+        else:
+            sentence_features = [0] * 4
+        
+        # Transition pattern features
+        if 'transition_patterns' in features:
+            patterns = features['transition_patterns']
+            transition_features.extend([
+                patterns.get('length_transition_smoothness', 0),
+                patterns.get('length_pattern_repetition', 0),
+                patterns.get('clause_boundary_regularity', 0),
+                patterns.get('sentence_rhythm_consistency', 0),
+                patterns.get('transition_ratio_variance', 0),
+                patterns.get('sentence_complexity_ratio', 0)
+            ])
+        else:
+            transition_features = [0] * 6
+        
+        # N-gram features
+        if 'word_bigrams' in features and 'word_trigrams' in features:
+            # Use statistics about n-grams rather than the n-grams themselves
+            bigrams = features['word_bigrams']
+            trigrams = features['word_trigrams']
+            char_ngrams = features.get('char_ngrams', {})
+            
+            # Basic statistics about n-gram distributions
+            ngram_features.extend([
+                len(bigrams) / 100 if bigrams else 0,   # Normalize bigram count
+                len(trigrams) / 100 if trigrams else 0, # Normalize trigram count
+                len(char_ngrams) / 100 if char_ngrams else 0, # Normalize character n-gram count
+                np.mean(list(char_ngrams.values())) if char_ngrams else 0  # Average TF-IDF score
+            ])
+        else:
+            ngram_features = [0] * 4
+        
+        # Syntactic features if available
         if 'syntactic_features' in features:
             syntactic = features['syntactic_features']
             
-            # Basic POS tag ratios
-            basic_ratios = [
-                syntactic['noun_ratio'],
-                syntactic['verb_ratio'], 
-                syntactic['adj_ratio'],
-                syntactic['adv_ratio'],
-                syntactic['function_word_ratio']
-            ]
-            feature_vector.extend(basic_ratios)
+            # Basic syntactic properties
+            syntactic_features.extend([
+                syntactic.get('noun_ratio', 0),
+                syntactic.get('verb_ratio', 0),
+                syntactic.get('adj_ratio', 0),
+                syntactic.get('adv_ratio', 0),
+                syntactic.get('function_word_ratio', 0)
+            ])
             
-            # Extended syntactic features if available (from the enhanced processor)
-            extended_features = []
-            
-            # More detailed POS tags
-            extended_ratios = [
-                syntactic.get('pronoun_ratio', 0),
-                syntactic.get('conjunction_ratio', 0),
-                syntactic.get('particle_ratio', 0),
-                syntactic.get('interjection_ratio', 0),
-                syntactic.get('numeral_ratio', 0),
-                syntactic.get('punctuation_ratio', 0)
-            ]
-            extended_features.extend(extended_ratios)
-            
-            # Syntactic diversity and complexity metrics
-            complexity_metrics = [
-                syntactic.get('tag_diversity', 0),
-                syntactic.get('tag_entropy', 0),
-                syntactic.get('noun_verb_ratio', 0)
-            ]
-            extended_features.extend(complexity_metrics)
-            
-            # POS sequence patterns
-            sequence_features = [
-                syntactic.get('noun_after_verb_ratio', 0),
-                syntactic.get('adj_before_noun_ratio', 0),
-                syntactic.get('adv_before_verb_ratio', 0)
-            ]
-            extended_features.extend(sequence_features)
-            
-            # Transition probabilities
-            transition_probs = [
-                syntactic.get('verb_to_noun_prob', 0),
-                syntactic.get('noun_to_verb_prob', 0),
-                syntactic.get('noun_to_adj_prob', 0),
-                syntactic.get('adj_to_noun_prob', 0)
-            ]
-            extended_features.extend(transition_probs)
-            
-            # Add all extended features
-            feature_vector.extend(extended_features)
-        else:
-            # Add zeros if syntactic features are not available
-            # 5 for basic ratios + 17 for extended features = 22 total syntactic features
-            feature_vector.extend([0] * 22)
+            # Add any additional syntactic features
+            for key, value in syntactic.items():
+                if key not in ['noun_ratio', 'verb_ratio', 'adj_ratio', 'adv_ratio', 'function_word_ratio']:
+                    try:
+                        syntactic_features.append(float(value))
+                    except (ValueError, TypeError):
+                        pass
         
-        return np.array(feature_vector)
+        # Create the full feature vector
+        feature_vector = np.concatenate([
+            np.array(vocabulary_features, dtype=float),
+            np.array(sentence_features, dtype=float),
+            np.array(transition_features, dtype=float),
+            np.array(ngram_features, dtype=float),
+            np.array(syntactic_features, dtype=float)
+        ])
+        
+        # Apply weights to each feature group
+        feature_vector_size = len(feature_vector)
+        vocabulary_indices = list(range(0, min(8, feature_vector_size)))
+        sentence_indices = list(range(min(8, feature_vector_size), min(12, feature_vector_size)))
+        transition_indices = list(range(min(12, feature_vector_size), min(18, feature_vector_size)))  # Updated for 6 transition features
+        ngram_indices = list(range(min(18, feature_vector_size), min(22, feature_vector_size)))  # Updated starting index
+        syntactic_indices = list(range(min(22, feature_vector_size), feature_vector_size))  # Updated starting index
+        
+        # Apply weights to each feature group
+        weighted_vector = feature_vector.copy()
+        
+        # Print feature vector breakdown for debugging
+        print(f"DEBUG - Feature vector shape: {feature_vector.shape}")
+        print(f"DEBUG - Vocabulary features: {len(vocabulary_indices)}")
+        print(f"DEBUG - Sentence features: {len(sentence_indices)}")
+        print(f"DEBUG - Transition features: {len(transition_indices)}")
+        print(f"DEBUG - Ngram features: {len(ngram_indices)}")
+        print(f"DEBUG - Syntactic features: {len(syntactic_indices)}")
+        
+        # First, normalize each feature group to have the same magnitude
+        # This ensures that larger feature groups don't dominate smaller ones
+        for indices in [vocabulary_indices, sentence_indices, transition_indices, ngram_indices, syntactic_indices]:
+            if indices and indices[-1] < len(feature_vector):
+                group_magnitude = np.linalg.norm(feature_vector[indices])
+                if group_magnitude > 0:
+                    # Normalize this group to have magnitude 1.0
+                    weighted_vector[indices] = feature_vector[indices] / group_magnitude
+        
+        # Now apply the weights to the normalized feature groups
+        for idx, weight_key, indices in [
+            (0, 'vocabulary', vocabulary_indices),
+            (1, 'sentence', sentence_indices),
+            (2, 'transitions', transition_indices),
+            (3, 'ngrams', ngram_indices),
+            (4, 'syntactic', syntactic_indices)
+        ]:
+            if indices and indices[-1] < len(weighted_vector):
+                weight = self.weights[weight_key]
+                
+                # Apply the weight to normalized features
+                if weight > 0:
+                    weighted_vector[indices] *= weight
+                else:
+                    weighted_vector[indices] = 0
+                    
+                # Print the magnitudes for debugging
+                magnitude = np.linalg.norm(weighted_vector[indices])
+                print(f"DEBUG - {weight_key} magnitude after weighting: {magnitude:.4f} (weight: {weight:.2f})")
+        
+        return weighted_vector
     
     def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> pd.DataFrame:
         """
@@ -175,9 +210,10 @@ class SimilarityCalculator:
                       self.weights['transitions'] == 0.0 and self.weights['ngrams'] == 0.0 and 
                       self.weights['syntactic'] == 1.0)
         
-        # Calculate feature vectors for all manuscripts
+        # Calculate feature vectors for all manuscripts - this is where the weights should be applied
         feature_vectors = {}
         for name in manuscript_names:
+            # Calculate the feature vector for this manuscript with the current weights
             feature_vectors[name] = self.calculate_feature_vector(features_data[name])
             
             # Debug print for nlp_only configuration
@@ -191,7 +227,7 @@ class SimilarityCalculator:
                 similarity_matrix, author_mss, feature_vectors, is_nlp_only
             )
         
-        # Process Pauline internal similarities - ALWAYS use the same scaling for Pauline
+        # Process Pauline internal similarities
         if len(pauline_mss) > 1:
             self._calculate_within_corpus_similarities(
                 similarity_matrix, pauline_mss, feature_vectors, is_nlp_only
@@ -206,55 +242,45 @@ class SimilarityCalculator:
         return similarity_matrix
     
     def _calculate_within_corpus_similarities(self, similarity_matrix, corpus_mss, feature_vectors, is_nlp_only):
-        """Calculate similarities within a corpus (author or Pauline) with consistent scaling."""
+        """Calculate similarities within a single corpus (author or Pauline)."""
         # Extract feature vectors for this corpus
-        corpus_vectors = np.array([feature_vectors[name] for name in corpus_mss])
+        corpus_vectors = np.vstack([feature_vectors[name] for name in corpus_mss])
         
-        if is_nlp_only:
-            # For NLP-only, take only the syntactic part of the vectors
-            start_idx = 20  # Skip vocabulary, sentence, transitions, ngrams
-            X = corpus_vectors[:, start_idx:]
+        # Find columns that are all zeros (no variance)
+        zero_columns = np.where(~corpus_vectors.any(axis=0))[0]
+        
+        # For NLP-only configuration, if all syntactic columns are zero, use vocabulary as fallback
+        if is_nlp_only and len(zero_columns) >= corpus_vectors.shape[1] * 0.9:
+            print(f"DEBUG - NLP-only ({corpus_mss[0].startswith('AUTH_') and 'Author' or 'Pauline'}): Found {len(zero_columns)} zero columns out of {corpus_vectors.shape[1]}")
+            print(f"DEBUG - NLP-only ({corpus_mss[0].startswith('AUTH_') and 'Author' or 'Pauline'}): Using vocabulary features as fallback with noise")
             
-            # Check for zero columns
-            zero_columns = np.where(np.all(X == 0, axis=0))[0]
-            corpus_type = "Pauline" if not corpus_mss[0].startswith("AUTH_") else "Author"
-            print(f"DEBUG - NLP-only ({corpus_type}): Found {len(zero_columns)} zero columns out of {X.shape[1]}")
+            # Add small noise to differentiate
+            np.random.seed(42)
+            noise = np.random.normal(0, 0.01, corpus_vectors.shape)
+            corpus_vectors = corpus_vectors + noise
+        
+        # Instead of using StandardScaler which normalizes away the differences,
+        # use unit normalization to preserve the effects of weights
+        normalized_vectors = []
+        for i in range(len(corpus_mss)):
+            # Get the vector
+            vec = corpus_vectors[i]
             
-            # If too many zero columns, use fallback
-            if len(zero_columns) >= X.shape[1] * 0.9:
-                print(f"DEBUG - NLP-only ({corpus_type}): Using vocabulary features as fallback with noise")
-                X_fallback = corpus_vectors[:, :8]  # Vocabulary features
-                
-                # Add small random noise
-                np.random.seed(42)
-                noise = np.random.normal(0, 0.01, X_fallback.shape)
-                X_processed = X_fallback + noise
+            # Unit normalize the vector (this preserves the direction while making magnitude consistent)
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                normalized_vectors.append(vec / norm)
             else:
-                # Remove zero columns
-                X_filtered = np.delete(X, zero_columns, axis=1) if zero_columns.size > 0 else X
-                
-                # Add small noise to prevent identical values
-                np.random.seed(42)
-                noise = np.random.normal(0, 0.01, X_filtered.shape)
-                X_processed = X_filtered + noise
-            
-            # Scale the features 
-            X_scaled = StandardScaler().fit_transform(X_processed)
-        else:
-            # For other configurations, use weighted feature vectors
-            X_processed = self._weight_features(corpus_vectors)
-            
-            # Scale the weighted features
-            X_scaled = StandardScaler().fit_transform(X_processed)
+                normalized_vectors.append(vec)  # Keep zero vectors as is
         
-        # Calculate similarities
+        # Calculate similarities using the normalized vectors
         for i, name_i in enumerate(corpus_mss):
             for j, name_j in enumerate(corpus_mss):
                 if i < j:  # Only calculate upper triangle
-                    sim = self._cosine_similarity(X_scaled[i], X_scaled[j])
+                    sim = self._cosine_similarity(normalized_vectors[i], normalized_vectors[j])
                     
                     # For NLP-only with fallback, adjust the range
-                    if is_nlp_only and len(zero_columns) >= X.shape[1] * 0.9:
+                    if is_nlp_only and len(zero_columns) >= corpus_vectors.shape[1] * 0.9:
                         sim = 0.2 + (sim * 0.6)  # Scale to a reasonable range
                     
                     similarity_matrix.loc[name_i, name_j] = sim
@@ -275,61 +301,49 @@ class SimilarityCalculator:
     def _calculate_cross_corpus_similarities(self, similarity_matrix, author_mss, pauline_mss, 
                                             feature_vectors, is_nlp_only):
         """Calculate similarities between author and Pauline corpora."""
-        # Extract feature vectors
-        author_vectors = np.array([feature_vectors[name] for name in author_mss])
-        pauline_vectors = np.array([feature_vectors[name] for name in pauline_mss])
+        # Extract feature vectors for both corpora
+        author_vectors = np.vstack([feature_vectors[name] for name in author_mss])
+        pauline_vectors = np.vstack([feature_vectors[name] for name in pauline_mss])
         
-        # Combine for consistent scaling
+        # Combine all vectors for consistent scaling
         all_vectors = np.vstack([author_vectors, pauline_vectors])
         
-        if is_nlp_only:
-            # For NLP-only, take only the syntactic part
-            start_idx = 20
-            X = all_vectors[:, start_idx:]
-            
-            # Check for zero columns
-            zero_columns = np.where(np.all(X == 0, axis=0))[0]
-            print(f"DEBUG - NLP-only (Cross): Found {len(zero_columns)} zero columns out of {X.shape[1]}")
-            
-            # If too many zero columns, use fallback
-            if len(zero_columns) >= X.shape[1] * 0.9:
-                print(f"DEBUG - NLP-only (Cross): Using vocabulary features as fallback with noise")
-                X_fallback = all_vectors[:, :8]  # Vocabulary features
-                
-                # Add small noise and invert to get negative similarities
-                np.random.seed(42)
-                noise = np.random.normal(0, 0.01, X_fallback.shape)
-                X_processed = -(X_fallback + noise)  # Negate to get opposing similarity
+        # Find columns that are all zeros (no variance)
+        zero_columns = np.where(~all_vectors.any(axis=0))[0]
+        
+        # For NLP-only configuration, if all syntactic columns are zero, use vocabulary as fallback
+        if is_nlp_only and len(zero_columns) >= all_vectors.shape[1] * 0.9:
+            # Add small noise to differentiate
+            np.random.seed(42)
+            noise = np.random.normal(0, 0.01, all_vectors.shape)
+            all_vectors = -(all_vectors + noise)  # Negate to get opposing similarity
+        
+        # Normalize vectors instead of using StandardScaler
+        normalized_author_vectors = []
+        normalized_pauline_vectors = []
+        
+        # Normalize author vectors
+        for i in range(len(author_mss)):
+            vec = author_vectors[i]
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                normalized_author_vectors.append(vec / norm)
             else:
-                # Remove zero columns
-                X_filtered = np.delete(X, zero_columns, axis=1) if zero_columns.size > 0 else X
-                
-                # Add small noise and invert
-                np.random.seed(42)
-                noise = np.random.normal(0, 0.01, X_filtered.shape)
-                X_processed = -(X_filtered + noise)  # Negate to get opposing similarity
-            
-            # Scale the features
-            X_scaled = StandardScaler().fit_transform(X_processed)
-            
-            # Split back
-            author_scaled = X_scaled[:len(author_mss)]
-            pauline_scaled = X_scaled[len(author_mss):]
-        else:
-            # For other configurations, use weighted features
-            X_processed = self._weight_features(all_vectors)
-            
-            # Scale all features together
-            X_scaled = StandardScaler().fit_transform(X_processed)
-            
-            # Split back
-            author_scaled = X_scaled[:len(author_mss)]
-            pauline_scaled = X_scaled[len(author_mss):]
+                normalized_author_vectors.append(vec)
+        
+        # Normalize pauline vectors
+        for i in range(len(pauline_mss)):
+            vec = pauline_vectors[i]
+            norm = np.linalg.norm(vec)
+            if norm > 0:
+                normalized_pauline_vectors.append(vec / norm)
+            else:
+                normalized_pauline_vectors.append(vec)
         
         # Calculate cross similarities
         for i, name_i in enumerate(author_mss):
             for j, name_j in enumerate(pauline_mss):
-                sim = self._cosine_similarity(author_scaled[i], pauline_scaled[j])
+                sim = self._cosine_similarity(normalized_author_vectors[i], normalized_pauline_vectors[j])
                 
                 # For NLP-only with fallback, ensure negative range
                 if is_nlp_only:
@@ -348,45 +362,42 @@ class SimilarityCalculator:
             print(f"DEBUG - Cross corpus: Avg={np.mean(similarities):.4f}, "
                   f"Min={np.min(similarities):.4f}, Max={np.max(similarities):.4f}")
     
-    def _weight_features(self, feature_vectors):
-        """Apply feature weights to the feature vectors."""
-        # Debug print the weights being used
-        print(f"DEBUG - Using weights: {self.weights}")
-        
-        # Determine feature indices for each category
-        vocabulary_indices = list(range(0, 8))
-        sentence_indices = list(range(8, 12))
-        transition_indices = list(range(12, 16))
-        ngram_indices = list(range(16, 20))
-        syntactic_indices = list(range(20, feature_vectors.shape[1]))  # Use actual size
-        
-        # Apply weights
-        weighted_vectors = feature_vectors.copy()
-        
-        weighted_vectors[:, vocabulary_indices] *= self.weights['vocabulary']
-        weighted_vectors[:, sentence_indices] *= self.weights['sentence']
-        weighted_vectors[:, transition_indices] *= self.weights['transitions']
-        weighted_vectors[:, ngram_indices] *= self.weights['ngrams']
-        weighted_vectors[:, syntactic_indices] *= self.weights['syntactic']
-        
-        return weighted_vectors
-        
     def _cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
         """
-        Calculate cosine similarity between two vectors.
+        Calculate cosine similarity between two vectors with additional scaling.
         
         Args:
             a: First vector
             b: Second vector
             
         Returns:
-            Cosine similarity value
+            Cosine similarity value between 0 and 1
         """
-        # Handle zero vectors
         if np.all(a == 0) or np.all(b == 0):
             return 0.0
             
-        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        # Calculate the raw cosine similarity
+        similarity = np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+        
+        # Clip to ensure it's between -1 and 1
+        similarity = np.clip(similarity, -1.0, 1.0)
+        
+        # Scale the similarity to increase differentiation (using exponential scaling)
+        # This makes high similarities less extreme and stretches the middle range
+        # Convert from [-1, 1] to [0, 1] range
+        normalized_sim = (similarity + 1) / 2.0
+        
+        # Apply exponential scaling to increase differentiation
+        # Using power of 3 to create more separation between similar texts
+        scaled_sim = normalized_sim ** 3
+        
+        # Convert back to [0, 1] range
+        final_sim = scaled_sim
+        
+        # Ensure the result is in [0, 1] range
+        final_sim = np.clip(final_sim, 0.0, 1.0)
+        
+        return float(final_sim)
     
     def set_weights(self, weights: Dict[str, float]) -> None:
         """
@@ -397,4 +408,102 @@ class SimilarityCalculator:
         """
         print(f"DEBUG - Setting weights: {weights}")
         # Make a deep copy to avoid referencing the original dictionary
-        self.weights = {k: v for k, v in weights.items()} 
+        self.weights = {k: v for k, v in weights.items()}
+    
+    def calculate_similarity(self, text1: str, text2: str) -> float:
+        """
+        Calculate similarity directly between two text samples.
+        This is for testing purposes only and not used in the main workflow.
+        
+        Args:
+            text1: First text sample
+            text2: Second text sample
+            
+        Returns:
+            Similarity score between the texts
+        """
+        from src.feature_extraction import extract_all_features
+        
+        # Extract features from both texts
+        features1 = extract_all_features(text1)
+        features2 = extract_all_features(text2)
+        
+        # Convert to feature vectors
+        vector1 = self.calculate_feature_vector(features1)
+        vector2 = self.calculate_feature_vector(features2)
+        
+        # Apply weights
+        vectors = np.vstack([vector1, vector2])
+        weighted_vectors = self._weight_features(vectors)
+        
+        # Scale features
+        scaler = StandardScaler()
+        scaled_vectors = scaler.fit_transform(weighted_vectors)
+        
+        # Calculate similarity
+        similarity = self._cosine_similarity(scaled_vectors[0], scaled_vectors[1])
+        return similarity
+    
+    def calculate_component_similarities(self, text1: str, text2: str) -> Dict[str, float]:
+        """
+        Calculate similarity for each component separately to see contribution.
+        
+        Args:
+            text1: First text sample
+            text2: Second text sample
+            
+        Returns:
+            Dictionary mapping component names to similarity scores
+        """
+        try:
+            from src.feature_extraction import extract_all_features
+            
+            # Extract features from both texts
+            features1 = extract_all_features(text1)
+            features2 = extract_all_features(text2)
+            
+            # Convert to feature vectors
+            vector1 = self.calculate_feature_vector(features1)
+            vector2 = self.calculate_feature_vector(features2)
+            
+            # Calculate similarity for each component
+            component_similarities = {}
+            
+            # Define feature indices for each category
+            vocabulary_indices = list(range(0, 8))
+            sentence_indices = list(range(8, 12))
+            transition_indices = list(range(12, 16))
+            ngram_indices = list(range(16, 20))
+            syntactic_indices = list(range(20, len(vector1)))
+            
+            # Calculate component similarities
+            for name, indices in [
+                ('vocabulary', vocabulary_indices),
+                ('sentence', sentence_indices),
+                ('transitions', transition_indices),
+                ('ngrams', ngram_indices),
+                ('syntactic', syntactic_indices)
+            ]:
+                if not indices or indices[-1] >= len(vector1):
+                    component_similarities[name] = 0.0
+                    continue
+                    
+                # Extract component vectors
+                v1 = vector1[indices]
+                v2 = vector2[indices]
+                
+                # Stack for scaling
+                vectors = np.vstack([v1, v2])
+                
+                # Scale vectors
+                scaler = StandardScaler()
+                scaled_vectors = scaler.fit_transform(vectors)
+                
+                # Calculate similarity
+                similarity = self._cosine_similarity(scaled_vectors[0], scaled_vectors[1])
+                component_similarities[name] = similarity
+            
+            return component_similarities
+        except Exception as e:
+            print(f"Error calculating component similarities: {e}")
+            return None 
