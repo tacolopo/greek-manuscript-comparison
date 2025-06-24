@@ -1,103 +1,141 @@
-# Greek Manuscript Comparison: Unbiased Stylometric Analysis of Pauline Letters
+# Greek Manuscript NLP Analysis
 
-This project conducts an unbiased stylometric analysis of Pauline letters in the New Testament, allowing natural stylistic patterns to emerge from the data without imposing predetermined categories such as "disputed" vs "undisputed" authorship.
+A streamlined machine learning system for analyzing ancient Greek texts using natural language processing techniques. This system focuses on preprocessing, feature extraction, similarity calculation, clustering, and visualization.
 
-## Project Overview
+## Features
 
-Traditional approaches to Pauline authorship studies often begin with predetermined classifications, potentially introducing bias. This project takes a data-driven approach, using multidimensional scaling (MDS) and hierarchical clustering to identify natural stylistic relationships across five different feature weighting configurations:
+- **Text Preprocessing**: Cleans and normalizes ancient Greek texts
+- **Advanced NLP**: Uses CLTK, Greek BERT, and spaCy for linguistic analysis
+- **Feature Extraction**: Extracts vocabulary, syntactic, and stylistic features
+- **Similarity Calculation**: Computes NLP-based text similarities
+- **Clustering**: Groups texts using machine learning algorithms
+- **Visualization**: Generates plots and reports for analysis results
 
-1. **Baseline**: Balanced weighting of all stylometric features
-2. **Vocabulary-Focused**: Emphasizes word choice and lexical features
-3. **Structure-Focused**: Prioritizes sentence patterns and structural elements
-4. **NLP-Only**: Focuses solely on linguistic and syntactic features
-5. **Equal Weights**: Assigns equal importance to all feature categories
+## Quick Start
 
-## Key Findings
-
-The analysis revealed several important insights:
-
-- **Consistent Groupings**: Some letter groups consistently cluster together across feature weightings:
-  - The major doctrinal letters (Romans, 1 & 2 Corinthians, Galatians) formed a remarkably stable group (4.5/5 configurations)
-  - The Pastoral Epistles (1 & 2 Timothy, Titus) showed strong stylistic affinity (4.3/5 configurations)
-
-- **Feature Sensitivity**: Feature weighting dramatically affected perceived relationships between letters. The same corpus analyzed with different feature weights produced significantly different stylistic groupings.
-
-- **Unstable Affiliations**: Some letters showed inconsistent cluster membership across different feature weightings:
-  - Philemon appeared in 4 different clusters, consistent with its unique nature as a brief, personal letter
-  - Letters like 1 Thessalonians, Philippians, and the Pastoral Epistles showed moderate instability
-
-- **Natural Stylistic Patterns**: Rather than confirming predetermined categories, the data revealed organic groupings that sometimes, but not always, aligned with traditional classifications.
-
-## Installation
-
-1. Clone this repository
-2. Install the required dependencies:
-   ```
+1. **Install Dependencies**:
+   ```bash
    pip install -r requirements.txt
    ```
-3. Download required NLTK and CLTK data:
+
+2. **Prepare Your Data**:
+   - Place Greek text files (.txt) in the `data/` directory
+   - The system will automatically discover and process all text files
+
+3. **Run Analysis**:
+   ```bash
+   python run_nlp_analysis.py
    ```
-   python install_data.py
-   ```
 
-## Key Scripts
+4. **View Results**:
+   - Analysis report: `nlp_analysis_output/analysis_report.txt`
+   - Similarity matrix: `nlp_analysis_output/similarity_matrix.csv`
+   - Visualizations: `nlp_visualizations/` directory
 
-### Primary Analysis Scripts
+## System Components
 
-- **unbiased_pauline_clustering.py**: Performs clustering analysis on Pauline letters without predetermined groupings, using 5 different feature weighting configurations.
-  ```
-  python unbiased_pauline_clustering.py
-  ```
+### Core Modules
 
-- **improve_pauline_plots.py**: Enhances the visualizations with better labels and creates side-by-side comparisons.
-  ```
-  python improve_pauline_plots.py
-  ```
+- **`src/preprocessing.py`**: Text cleaning and normalization
+- **`src/advanced_nlp.py`**: Advanced NLP feature extraction using CLTK and BERT
+- **`src/features.py`**: Essential linguistic feature extraction
+- **`src/similarity.py`**: NLP-based similarity calculations
+- **`src/multi_comparison.py`**: Main analysis pipeline
+- **`src/visualization.py`**: Plot generation (if present)
 
-- **reorganize_analysis_files.py**: Organizes analysis files, moving biased analysis results to a legacy folder.
-  ```
-  python reorganize_analysis_files.py
-  ```
+### Main Analysis Script
 
-### Output Directories
+- **`run_nlp_analysis.py`**: Complete workflow demonstration
 
-- **pauline_analysis_unbiased/**: Contains the unbiased clustering analysis results
-- **pauline_enhanced_plots/**: Contains enhanced visualizations with clearer labels and side-by-side comparisons
-- **pauline_analysis/legacy_biased_analysis/**: Contains the old analysis that used predetermined disputed/undisputed groupings
+## Example Usage
 
-## Methodology
+```python
+from src import MultipleManuscriptComparison
 
-The analysis follows these steps:
+# Initialize the analysis system
+comparison = MultipleManuscriptComparison(
+    output_dir="results",
+    visualizations_dir="plots"
+)
 
-1. **Feature Extraction**: Calculate stylometric features from each Pauline letter, including:
-   - Lexical features (vocabulary richness, unique words, word frequencies)
-   - Syntactic features (sentence length, complexity, part-of-speech patterns)
-   - Semantic features (word embeddings, contextual relationships)
-   - Structural features (discourse markers, connectives, rhetorical elements)
+# Define your manuscripts
+manuscripts = {
+    "text1": "path/to/text1.txt",
+    "text2": "path/to/text2.txt",
+    # ... more texts
+}
 
-2. **Similarity Calculation**: Compute pairwise similarities between letters using various metrics
+# Run the complete analysis
+results = comparison.compare_multiple_manuscripts(
+    manuscripts=manuscripts,
+    method='hierarchical',
+    n_clusters=None  # Auto-determine
+)
+```
 
-3. **Multidimensional Scaling**: Visualize these similarities in 2D space
+## Output Files
 
-4. **Hierarchical Clustering**: Identify natural groupings of letters based on stylistic similarities
+The system generates several output files:
 
-5. **Cross-Configuration Analysis**: Compare clustering results across different feature weightings
+1. **Analysis Report** (`analysis_report.txt`): Comprehensive text report with clustering results and feature importance
+2. **Similarity Matrix** (`similarity_matrix.csv`): Pairwise similarity scores between all texts
+3. **MDS Plot** (`mds_clustering.png`): 2D visualization using Multi-Dimensional Scaling
+4. **t-SNE Plot** (`tsne_clustering.png`): Alternative 2D visualization using t-SNE
+5. **Similarity Heatmap** (`similarity_heatmap.png`): Matrix visualization of similarities
 
-## Summary Reports
+## NLP Features
 
-- **unbiased_pauline_analysis_summary.md**: Comprehensive summary of the unbiased analysis
-- **pauline_analysis_unbiased/unbiased_cluster_report.md**: Detailed report of the clustering results
+The system extracts multiple types of linguistic features:
 
-## Implications
+### Vocabulary Features
+- Type-token ratio (vocabulary richness)
+- Hapax legomena ratio (unique words)
+- Vocabulary size metrics
 
-This unbiased analysis challenges simplistic notions of clear stylistic boundaries between Pauline letters:
+### Sentence Features  
+- Mean and standard deviation of sentence lengths
+- Sentence count
 
-1. **Methodological Impacts**: Feature selection dramatically affects results, highlighting how methodological choices influence stylometric conclusions.
+### Syntactic Features (Advanced NLP)
+- Part-of-speech tag ratios (nouns, verbs, adjectives, etc.)
+- Syntactic diversity metrics
+- Grammatical pattern analysis
 
-2. **Complex Stylistic Networks**: The data suggests complex stylistic relationships within the Pauline corpus that defy simple categorization.
+### Character N-gram Features
+- TF-IDF weighted character sequences
+- Pattern frequency distributions
 
-3. **Scientific Approach**: By avoiding predetermined categories, this analysis demonstrates a more scientifically sound approach to stylometric studies.
+## Dependencies
+
+Key Python packages required:
+
+- `scikit-learn`: Machine learning algorithms
+- `numpy`, `pandas`: Data processing
+- `matplotlib`, `seaborn`: Visualization
+- `cltk`: Classical Language Toolkit for ancient Greek
+- `transformers`: Greek BERT model
+- `sentence-transformers`: Semantic similarity
+- `spacy`: Named entity recognition (optional)
+- `nltk`: N-gram processing
+
+## Data Format
+
+Text files should contain clean Greek text in UTF-8 encoding. The system handles:
+
+- Ancient Greek with or without diacritics
+- Mixed case text (automatically normalized)
+- Various punctuation marks
+- Chapter/verse markers (automatically removed)
+
+## Clustering Methods
+
+Two clustering algorithms are available:
+
+1. **Hierarchical Clustering** (default): Good for nested authorship relationships
+2. **K-Means Clustering**: Good for spherical clusters
+
+The system automatically determines the optimal number of clusters using silhouette analysis.
 
 ## License
 
-MIT 
+This project is designed for academic research in computational linguistics and digital humanities. 
