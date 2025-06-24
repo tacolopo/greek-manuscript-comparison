@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Simple NLP Analysis Script for Greek Manuscripts
+Enhanced NLP Analysis Script for Greek Manuscripts
 
-This script demonstrates how to use the streamlined Greek manuscript 
-NLP analysis system for preprocessing, feature extraction, similarity 
-calculation, clustering, and visualization.
+This script performs data-driven clustering analysis of Greek manuscripts
+using advanced NLP features and multiple clustering algorithms.
+No assumptions are made about authorship - the analysis is purely data-driven.
 """
 
 import os
@@ -26,101 +26,95 @@ def collect_manuscripts(data_dir: str) -> dict:
     # Look for text files in subdirectories
     for root, dirs, files in os.walk(data_dir):
         for file in files:
-            if file.endswith('.txt'):
-                file_path = os.path.join(root, file)
-                # Use filename without extension as manuscript name
-                name = os.path.splitext(file)[0]
-                manuscripts[name] = file_path
+            if file.endswith('.txt') and '_read' in file:
+                full_path = os.path.join(root, file)
+                # Create a clean name from the file
+                name = file.replace('_read.txt', '').replace('grcsbl_', '')
+                manuscripts[name] = full_path
     
     return manuscripts
 
 def main():
-    """Run the NLP analysis workflow."""
-    print("Greek Manuscript NLP Analysis")
-    print("=" * 40)
-    
-    # Configuration
-    data_dir = "data"  # Directory containing manuscript text files
-    output_dir = "nlp_analysis_output"
-    visualizations_dir = "nlp_visualizations"
+    """Main analysis function."""
+    print("=== Enhanced Greek Manuscript NLP Clustering Analysis ===")
+    print("This analysis makes NO assumptions about authorship.")
+    print("Clustering is purely data-driven based on linguistic features.\n")
     
     # Collect manuscripts
-    print(f"Collecting manuscripts from {data_dir}...")
+    data_dir = "data"
+    if not os.path.exists(data_dir):
+        print(f"Error: Data directory '{data_dir}' not found!")
+        return
+    
+    print("Collecting manuscripts...")
     manuscripts = collect_manuscripts(data_dir)
     
     if not manuscripts:
-        print(f"No text files found in {data_dir}")
-        print("Please add some .txt files containing Greek text to analyze.")
+        print("No manuscripts found! Please check the data directory.")
         return
     
-    print(f"Found {len(manuscripts)} manuscript files:")
-    for name in sorted(manuscripts.keys())[:10]:  # Show first 10
-        print(f"  - {name}")
+    print(f"Found {len(manuscripts)} manuscripts")
+    
+    # Show first few manuscripts
+    print("\nFirst 10 manuscripts:")
+    for i, name in enumerate(list(manuscripts.keys())[:10]):
+        print(f"  {i+1}. {name}")
+    
     if len(manuscripts) > 10:
         print(f"  ... and {len(manuscripts) - 10} more")
     
-    # Initialize the comparison system
-    print("\nInitializing NLP analysis system...")
-    comparison = MultipleManuscriptComparison(
-        output_dir=output_dir,
-        visualizations_dir=visualizations_dir
-    )
+    # Initialize the enhanced comparison system
+    print("\nInitializing enhanced NLP analysis system...")
     
-    # Optional: Create display names for better visualization labels
-    display_names = {}
-    for name in manuscripts.keys():
-        # Extract book name if it follows the pattern "grcsbl_075_ROM_01_read"
-        parts = name.split('_')
-        if len(parts) >= 3:
-            book_code = parts[2]
-            display_names[name] = book_code
-        else:
-            display_names[name] = name
-    
-    # Run the complete analysis workflow
-    print("\nRunning NLP analysis...")
     try:
-        results = comparison.compare_multiple_manuscripts(
-            manuscripts=manuscripts,
-            display_names=display_names,
-            method='hierarchical',  # Use hierarchical clustering
-            n_clusters=None  # Auto-determine optimal number of clusters
+        comparator = MultipleManuscriptComparison(use_advanced_nlp=True)
+        
+        # Prepare manuscript paths and names
+        manuscript_paths = list(manuscripts.values())
+        manuscript_names = list(manuscripts.keys())
+        
+        # Run the complete analysis
+        print("\nRunning complete enhanced clustering analysis...")
+        print("This may take several minutes depending on the number of manuscripts...")
+        
+        results = comparator.run_complete_analysis(
+            manuscript_paths=manuscript_paths,
+            manuscript_names=manuscript_names,
+            output_dir="enhanced_clustering_results"
         )
         
-        print(f"\nAnalysis completed successfully!")
-        print(f"Results saved to: {output_dir}")
-        print(f"Visualizations saved to: {visualizations_dir}")
+        print("\n" + "="*60)
+        print("ENHANCED ANALYSIS COMPLETE!")
+        print("="*60)
+        print(f"Results saved to: enhanced_clustering_results/")
+        print("\nThe analysis used:")
+        print("✓ Advanced vocabulary richness metrics")
+        print("✓ Sentence complexity analysis")
+        print("✓ Function word usage patterns")
+        print("✓ Morphological diversity measures")
+        print("✓ Semantic embeddings (when available)")
+        print("✓ Multiple clustering algorithms (K-Means, Hierarchical, GMM, Spectral, DBSCAN)")
+        print("✓ Comprehensive validation metrics")
+        print("✓ Feature selection and dimensionality reduction")
+        print("\nCheck the report and visualizations for detailed results!")
         
-        # Print summary
-        clustering_result = results['clustering_result']
-        print(f"\nSummary:")
-        print(f"- Analyzed {len(manuscripts)} manuscripts")
-        print(f"- Found {clustering_result['n_clusters']} clusters")
-        print(f"- Silhouette score: {clustering_result['silhouette_score']:.3f}")
-        
-        # Print cluster assignments
-        print(f"\nCluster assignments:")
-        cluster_dict = {}
-        for i, (name, label) in enumerate(zip(clustering_result['manuscript_names'], 
-                                            clustering_result['cluster_labels'])):
-            if label not in cluster_dict:
-                cluster_dict[label] = []
-            cluster_dict[label].append(display_names.get(name, name))
-        
-        for cluster_id in sorted(cluster_dict.keys()):
-            members = cluster_dict[cluster_id]
-            print(f"  Cluster {cluster_id}: {', '.join(members)}")
-        
-        print(f"\nGenerated files:")
-        print(f"  - Analysis report: {results['report_file']}")
-        print(f"  - Similarity matrix: {results['similarity_file']}")
-        for viz_type, viz_file in results['visualization_files'].items():
-            print(f"  - {viz_type.upper()} plot: {viz_file}")
-            
     except Exception as e:
-        print(f"Error during analysis: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"\nError during analysis: {e}")
+        print("This might be due to missing dependencies or data issues.")
+        print("Try running with fewer manuscripts or check the requirements.")
+        
+        # Fallback: basic analysis
+        print("\nAttempting basic analysis without advanced NLP...")
+        try:
+            comparator = MultipleManuscriptComparison(use_advanced_nlp=False)
+            results = comparator.run_complete_analysis(
+                manuscript_paths=manuscript_paths[:20],  # Limit to first 20
+                manuscript_names=manuscript_names[:20],
+                output_dir="basic_clustering_results"
+            )
+            print("Basic analysis completed successfully!")
+        except Exception as e2:
+            print(f"Basic analysis also failed: {e2}")
 
 if __name__ == "__main__":
     main() 

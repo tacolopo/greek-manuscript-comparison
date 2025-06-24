@@ -1,6 +1,6 @@
 """
-Module for NLP-based comparison of multiple Greek manuscripts.
-Simplified version focusing on essential machine learning analysis.
+Module for enhanced NLP-based comparison of multiple Greek manuscripts.
+Includes multiple clustering algorithms, validation metrics, and ensemble methods.
 """
 
 import os
@@ -10,9 +10,10 @@ import warnings
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from sklearn.cluster import KMeans, AgglomerativeClustering
+from sklearn.cluster import KMeans, AgglomerativeClustering, DBSCAN, SpectralClustering
+from sklearn.mixture import GaussianMixture
 from sklearn.manifold import MDS, TSNE
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -23,435 +24,342 @@ from .advanced_nlp import AdvancedGreekProcessor
 
 
 class MultipleManuscriptComparison:
-    """Compare multiple Greek manuscripts using NLP analysis."""
+    """Enhanced comparison of multiple Greek manuscripts using ML clustering."""
     
-    def __init__(self, 
-                 output_dir: str = "output", 
-                 visualizations_dir: str = "visualizations"):
+    def __init__(self, use_advanced_nlp: bool = True):
         """
-        Initialize the comparison object.
+        Initialize the manuscript comparison system.
         
         Args:
-            output_dir: Directory to save output files
-            visualizations_dir: Directory to save visualization files
+            use_advanced_nlp: Whether to use advanced NLP features
         """
-        self.output_dir = output_dir
-        self.visualizations_dir = visualizations_dir
-        os.makedirs(output_dir, exist_ok=True)
-        os.makedirs(visualizations_dir, exist_ok=True)
-        
-        # Initialize components
-        self.preprocessor = GreekTextPreprocessor(
-            remove_stopwords=False, 
-            normalize_accents=True, 
-            lowercase=True
-        )
+        self.preprocessor = GreekTextPreprocessor()
         self.feature_extractor = FeatureExtractor()
         self.similarity_calculator = SimilarityCalculator()
+        self.use_advanced_nlp = use_advanced_nlp
         
-        # Advanced NLP processor
-        try:
-            self.advanced_processor = AdvancedGreekProcessor()
-            self.preprocessor.advanced_processor = self.advanced_processor
-            print("Successfully initialized advanced NLP processor")
-        except ImportError as e:
-            warnings.warn(f"Could not initialize advanced NLP processor: {e}")
+        if use_advanced_nlp:
+            try:
+                self.advanced_processor = AdvancedGreekProcessor()
+            except Exception as e:
+                print(f"Warning: Could not initialize advanced NLP processor: {e}")
+                self.advanced_processor = None
+                self.use_advanced_nlp = False
+        else:
             self.advanced_processor = None
         
-        # For displaying book names
-        self.display_names = {}
+        # Store results
+        self.manuscript_features = {}
+        self.feature_matrices = []
+        self.manuscript_names = []
+        self.similarity_matrices = {}
+        self.clustering_results = {}
     
     def preprocess_manuscripts(self, 
                               manuscript_paths: List[str], 
                               manuscript_names: Optional[List[str]] = None) -> Dict[str, Dict]:
-        """
-        Preprocess multiple manuscripts.
-        
-        Args:
-            manuscript_paths: List of paths to manuscript files
-            manuscript_names: Optional list of names for the manuscripts
-            
-        Returns:
-            Dictionary mapping manuscript names to preprocessed data
-        """
-        preprocessed_data = {}
-        
-        # Generate names if not provided
+        """Preprocess multiple manuscripts and extract features."""
         if manuscript_names is None:
-            manuscript_names = [os.path.basename(path).split('.')[0] for path in manuscript_paths]
+            manuscript_names = [os.path.basename(path) for path in manuscript_paths]
         
-        # Preprocess each manuscript
-        for name, path in tqdm(zip(manuscript_names, manuscript_paths), 
-                               desc="Preprocessing manuscripts", 
-                               total=len(manuscript_paths)):
+        print(f"Processing {len(manuscript_paths)} manuscripts...")
+        processed_manuscripts = {}
+        
+        for path, name in tqdm(zip(manuscript_paths, manuscript_names), 
+                              desc="Preprocessing manuscripts"):
             try:
-                # Preprocess the manuscript
-                preprocessed = self.preprocessor.preprocess_file(path)
-                preprocessed_data[name] = preprocessed
+                with open(path, 'r', encoding='utf-8') as f:
+                    text = f.read()
                 
-                # Add advanced NLP features if available
-                if self.advanced_processor:
+                preprocessed = self.preprocessor.preprocess_text(text)
+                
+                if self.use_advanced_nlp and self.advanced_processor:
                     try:
-                        nlp_features = self.advanced_processor.process_document(preprocessed['normalized_text'])
+                        nlp_features = self.advanced_processor.process_document(
+                            preprocessed['normalized_text']
+                        )
                         preprocessed['nlp_features'] = nlp_features
                     except Exception as e:
-                        warnings.warn(f"Error processing advanced NLP features for {name}: {e}")
+                        print(f"Warning: Advanced NLP processing failed for {name}: {e}")
+                        preprocessed['nlp_features'] = {}
+                else:
+                    preprocessed['nlp_features'] = {}
+                
+                processed_manuscripts[name] = preprocessed
                 
             except Exception as e:
-                warnings.warn(f"Error preprocessing manuscript {name}: {e}")
+                print(f"Error processing {name}: {e}")
+                continue
         
-        return preprocessed_data
+        return processed_manuscripts
     
-    def extract_features(self, preprocessed_data: Dict[str, Dict]) -> Dict[str, Dict]:
-        """
-        Extract features from preprocessed documents.
+    def extract_features(self, processed_manuscripts: Dict[str, Dict]) -> Dict[str, Dict]:
+        """Extract comprehensive features from preprocessed manuscripts."""
+        print("Extracting features...")
         
-        Args:
-            preprocessed_data: Dictionary mapping names to preprocessed documents
-            
-        Returns:
-            Dictionary mapping names to extracted features
-        """
-        features = {}
+        all_texts = [ms['normalized_text'] for ms in processed_manuscripts.values()]
+        self.feature_extractor.fit(all_texts)
         
-        # First pass - collect all texts for TF-IDF fitting
-        all_texts = []
-        for name, preprocessed in preprocessed_data.items():
-            if 'words' in preprocessed:
-                all_texts.append(' '.join(preprocessed['words']))
+        features_data = {}
+        feature_matrices = []
+        manuscript_names = []
         
-        # Fit the TF-IDF vectorizer on all texts
-        if all_texts:
-            self.feature_extractor.fit(all_texts)
-        
-        # Second pass - extract features for each document
-        for name, preprocessed in preprocessed_data.items():
+        for name, preprocessed in tqdm(processed_manuscripts.items(), desc="Extracting features"):
             try:
-                doc_features = self.feature_extractor.extract_all_features(preprocessed)
+                features = self.feature_extractor.extract_all_features(
+                    preprocessed, self.advanced_processor
+                )
+                features_data[name] = features
                 
-                # Add advanced NLP features if available
-                if self.advanced_processor and 'nlp_features' in preprocessed:
-                    # Add syntactic features from POS tags
-                    if 'pos_tags' in preprocessed['nlp_features']:
-                        try:
-                            syntactic_features = self.advanced_processor.extract_syntactic_features(
-                                preprocessed['nlp_features']['pos_tags']
-                            )
-                            doc_features['syntactic_features'] = syntactic_features
-                        except Exception as e:
-                            print(f"Warning: Error extracting syntactic features for {name}: {e}")
+                feature_vector = self.similarity_calculator.extract_nlp_features(features)
                 
-                features[name] = doc_features
-            except Exception as e:
-                warnings.warn(f"Error extracting features for manuscript {name}: {e}")
+                if len(feature_vector) > 0:
+                    feature_matrices.append(feature_vector)
+                    manuscript_names.append(name)
+                else:
+                    print(f"Warning: No features extracted for {name}")
                     
-        return features
+            except Exception as e:
+                print(f"Error extracting features for {name}: {e}")
+                continue
+        
+        self.manuscript_features = features_data
+        self.feature_matrices = feature_matrices
+        self.manuscript_names = manuscript_names
+        
+        return features_data
     
-    def calculate_similarity_matrix(self, features: Dict[str, Dict]) -> pd.DataFrame:
-        """
-        Calculate similarity matrix between manuscripts based on their features.
+    def perform_clustering(self, n_clusters_range: Tuple[int, int] = (2, 8)) -> Dict:
+        """Perform clustering with deterministic random states for reproducibility."""
+        print("Performing clustering analysis...")
         
-        Args:
-            features: Dictionary mapping manuscript IDs to their extracted features
+        X = self.similarity_calculator.fit_transform_features(
+            self.feature_matrices, self.manuscript_names
+        )
+        
+        clustering_results = {}
+        min_clusters, max_clusters = n_clusters_range
+        max_clusters = min(max_clusters, len(self.manuscript_names) - 1)
+        
+        # Set random seed for reproducibility
+        np.random.seed(42)
+        
+        for n_clusters in range(min_clusters, max_clusters + 1):
+            print(f"Testing {n_clusters} clusters...")
+            cluster_results = {}
             
-        Returns:
-            DataFrame containing pairwise similarities
-        """
-        return self.similarity_calculator.calculate_similarity_matrix(features)
+            # K-Means with fixed random state
+            try:
+                kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
+                kmeans_labels = kmeans.fit_predict(X)
+                cluster_results['kmeans'] = {
+                    'labels': kmeans_labels,
+                    'algorithm': 'KMeans',
+                    'silhouette': silhouette_score(X, kmeans_labels),
+                    'calinski_harabasz': calinski_harabasz_score(X, kmeans_labels),
+                    'davies_bouldin': davies_bouldin_score(X, kmeans_labels)
+                }
+            except Exception as e:
+                print(f"KMeans failed: {e}")
+            
+            # Hierarchical clustering (deterministic)
+            try:
+                hierarchical = AgglomerativeClustering(n_clusters=n_clusters, linkage='ward')
+                hierarchical_labels = hierarchical.fit_predict(X)
+                cluster_results['hierarchical'] = {
+                    'labels': hierarchical_labels,
+                    'algorithm': 'Hierarchical',
+                    'silhouette': silhouette_score(X, hierarchical_labels),
+                    'calinski_harabasz': calinski_harabasz_score(X, hierarchical_labels),
+                    'davies_bouldin': davies_bouldin_score(X, hierarchical_labels)
+                }
+            except Exception as e:
+                print(f"Hierarchical clustering failed: {e}")
+            
+            # Gaussian Mixture with fixed random state
+            try:
+                gmm = GaussianMixture(n_components=n_clusters, random_state=42)
+                gmm_labels = gmm.fit_predict(X)
+                cluster_results['gaussian_mixture'] = {
+                    'labels': gmm_labels,
+                    'algorithm': 'GaussianMixture',
+                    'silhouette': silhouette_score(X, gmm_labels),
+                    'calinski_harabasz': calinski_harabasz_score(X, gmm_labels),
+                    'davies_bouldin': davies_bouldin_score(X, gmm_labels)
+                }
+            except Exception as e:
+                print(f"Gaussian Mixture Model failed: {e}")
+            
+            clustering_results[n_clusters] = cluster_results
+        
+        self.clustering_results = clustering_results
+        return clustering_results
     
-    def cluster_manuscripts(self, 
-                           similarity_df: pd.DataFrame, 
-                           n_clusters: int = 3,
-                           method: str = 'hierarchical') -> Dict[str, Any]:
-        """
-        Cluster manuscripts based on similarity.
+    def find_optimal_clustering(self) -> Dict:
+        """Find optimal clustering based on validation metrics."""
+        print("Finding optimal clustering...")
         
-        Args:
-            similarity_df: DataFrame with similarity matrix
-            n_clusters: Number of clusters to create
-            method: Clustering method ('kmeans' or 'hierarchical')
-            
-        Returns:
-            Dictionary with clustering results
-        """
-        # Convert similarity matrix to distance matrix (1 - similarity)
-        distance_matrix = 1 - similarity_df.values
-        distance_matrix = np.maximum(distance_matrix, 0)  # Ensure non-negative
+        all_results = []
+        for n_clusters, algorithms in self.clustering_results.items():
+            for alg_name, result in algorithms.items():
+                if 'silhouette' in result:
+                    all_results.append({
+                        'n_clusters': n_clusters,
+                        'algorithm': alg_name,
+                        'silhouette': result['silhouette'],
+                        'calinski_harabasz': result['calinski_harabasz'],
+                        'davies_bouldin': result['davies_bouldin'],
+                        'labels': result['labels']
+                    })
         
-        # Apply clustering
-        if method == 'kmeans':
-            # Use MDS to get coordinates for k-means
-            mds = MDS(n_components=min(10, len(similarity_df)-1), 
-                     dissimilarity='precomputed', random_state=42)
-            coordinates = mds.fit_transform(distance_matrix)
-            
-            clusterer = KMeans(n_clusters=n_clusters, random_state=42)
-            cluster_labels = clusterer.fit_predict(coordinates)
-        else:  # hierarchical
-            clusterer = AgglomerativeClustering(
-                n_clusters=n_clusters, 
-                metric='precomputed', 
-                linkage='average'
-            )
-            cluster_labels = clusterer.fit_predict(distance_matrix)
+        results_df = pd.DataFrame(all_results)
+        best_idx = results_df['silhouette'].idxmax()
+        best_result = results_df.iloc[best_idx]
         
-        # Dimensionality reduction for visualization
-        mds = MDS(n_components=2, dissimilarity='precomputed', random_state=42)
-        mds_coordinates = mds.fit_transform(distance_matrix)
-        
-        # t-SNE for alternative visualization
-        n_samples = len(similarity_df)
-        perplexity = min(30, n_samples - 1)
-        tsne = TSNE(n_components=2, metric='precomputed', 
-                   perplexity=perplexity, random_state=42)
-        tsne_coordinates = tsne.fit_transform(distance_matrix)
-        
-        # Calculate silhouette score
-        try:
-            silhouette = silhouette_score(distance_matrix, cluster_labels, metric='precomputed')
-        except:
-            silhouette = 0.0
-        
-        return {
-            'cluster_labels': cluster_labels,
-            'manuscript_names': list(similarity_df.index),
-            'mds_coordinates': mds_coordinates,
-            'tsne_coordinates': tsne_coordinates,
-            'silhouette_score': silhouette,
-            'similarity_matrix': similarity_df,
-            'n_clusters': n_clusters,
-            'method': method
+        optimal_clustering = {
+            'n_clusters': int(best_result['n_clusters']),
+            'algorithm': best_result['algorithm'],
+            'labels': best_result['labels'],
+            'silhouette_score': best_result['silhouette'],
+            'manuscript_clusters': dict(zip(self.manuscript_names, best_result['labels']))
         }
-    
-    def generate_visualizations(self, clustering_result: Dict[str, Any]) -> Dict[str, str]:
-        """
-        Generate visualization plots.
         
-        Args:
-            clustering_result: Results from clustering
-            
-        Returns:
-            Dictionary mapping visualization names to file paths
-        """
+        print(f"Optimal: {optimal_clustering['algorithm']} with {optimal_clustering['n_clusters']} clusters")
+        print(f"Silhouette score: {optimal_clustering['silhouette_score']:.3f}")
+        
+        return optimal_clustering
+    
+    def create_visualizations(self, optimal_clustering: Dict, output_dir: str) -> Dict[str, str]:
+        """Create visualizations with deterministic random states."""
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Creating visualizations in {output_dir}...")
+        
+        X = self.similarity_calculator.fit_transform_features(
+            self.feature_matrices, self.manuscript_names
+        )
+        
+        labels = optimal_clustering['labels']
         visualization_files = {}
         
-        # MDS plot
-        mds_file = os.path.join(self.visualizations_dir, 'mds_clustering.png')
-        self._plot_clustering(
-            clustering_result['mds_coordinates'], 
-            clustering_result['cluster_labels'],
-            clustering_result['manuscript_names'],
-            'MDS Clustering of Greek Manuscripts',
-            mds_file
-        )
-        visualization_files['mds'] = mds_file
-        
-        # t-SNE plot
-        tsne_file = os.path.join(self.visualizations_dir, 'tsne_clustering.png')
-        self._plot_clustering(
-            clustering_result['tsne_coordinates'], 
-            clustering_result['cluster_labels'],
-            clustering_result['manuscript_names'],
-            't-SNE Clustering of Greek Manuscripts',
-            tsne_file
-        )
-        visualization_files['tsne'] = tsne_file
-        
-        # Similarity heatmap
-        heatmap_file = os.path.join(self.visualizations_dir, 'similarity_heatmap.png')
-        self._plot_similarity_heatmap(
-            clustering_result['similarity_matrix'],
-            clustering_result['cluster_labels'],
-            heatmap_file
-        )
-        visualization_files['heatmap'] = heatmap_file
+        # MDS Plot with fixed random state
+        try:
+            mds = MDS(n_components=2, dissimilarity='euclidean', random_state=42)
+            X_mds = mds.fit_transform(X)
+            
+            plt.figure(figsize=(12, 8))
+            scatter = plt.scatter(X_mds[:, 0], X_mds[:, 1], c=labels, cmap='tab10', s=100, alpha=0.7)
+            
+            for i, name in enumerate(self.manuscript_names):
+                plt.annotate(name, (X_mds[i, 0], X_mds[i, 1]), 
+                           xytext=(5, 5), textcoords='offset points', fontsize=8)
+            
+            plt.title(f'MDS Clustering - {optimal_clustering["algorithm"]}\n'
+                     f'{optimal_clustering["n_clusters"]} Clusters (Silhouette: {optimal_clustering["silhouette_score"]:.3f})')
+            plt.xlabel('MDS Dimension 1')
+            plt.ylabel('MDS Dimension 2')
+            plt.colorbar(scatter, label='Cluster')
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            mds_file = os.path.join(output_dir, 'mds_clustering.png')
+            plt.savefig(mds_file, dpi=300, bbox_inches='tight')
+            plt.close()
+            visualization_files['mds'] = mds_file
+            
+        except Exception as e:
+            print(f"Warning: Could not create MDS plot: {e}")
         
         return visualization_files
     
-    def _plot_clustering(self, coordinates, labels, names, title, filename):
-        """Plot clustering results."""
-        plt.figure(figsize=(12, 8))
+    def generate_report(self, optimal_clustering: Dict, output_file: str) -> str:
+        """Generate analysis report."""
+        print(f"Generating report: {output_file}")
         
-        # Create scatter plot
-        scatter = plt.scatter(coordinates[:, 0], coordinates[:, 1], 
-                            c=labels, cmap='tab10', s=100, alpha=0.7)
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write("GREEK MANUSCRIPT CLUSTERING ANALYSIS REPORT\n")
+            f.write("=" * 50 + "\n\n")
+            
+            f.write("ANALYSIS SUMMARY\n")
+            f.write("-" * 20 + "\n")
+            f.write(f"Total manuscripts analyzed: {len(self.manuscript_names)}\n")
+            f.write(f"Optimal clustering algorithm: {optimal_clustering['algorithm']}\n")
+            f.write(f"Optimal number of clusters: {optimal_clustering['n_clusters']}\n")
+            f.write(f"Silhouette score: {optimal_clustering['silhouette_score']:.4f}\n\n")
+            
+            f.write("CLUSTER ASSIGNMENTS\n")
+            f.write("-" * 20 + "\n")
+            
+            clusters = {}
+            for manuscript, cluster_id in optimal_clustering['manuscript_clusters'].items():
+                if cluster_id not in clusters:
+                    clusters[cluster_id] = []
+                clusters[cluster_id].append(manuscript)
+            
+            for cluster_id in sorted(clusters.keys()):
+                f.write(f"Cluster {cluster_id}:\n")
+                for manuscript in sorted(clusters[cluster_id]):
+                    f.write(f"  - {manuscript}\n")
+                f.write("\n")
+            
+            f.write("Analysis completed successfully.\n")
         
-        # Add labels for each point
-        for i, name in enumerate(names):
-            display_name = self.display_names.get(name, name)
-            plt.annotate(display_name, (coordinates[i, 0], coordinates[i, 1]), 
-                        xytext=(5, 5), textcoords='offset points', fontsize=8)
-        
-        plt.title(title)
-        plt.xlabel('Dimension 1')
-        plt.ylabel('Dimension 2')
-        plt.colorbar(scatter, label='Cluster')
-        plt.tight_layout()
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def _plot_similarity_heatmap(self, similarity_matrix, cluster_labels, filename):
-        """Plot similarity matrix as heatmap."""
-        plt.figure(figsize=(10, 8))
-        
-        # Sort by cluster labels for better visualization
-        sorted_indices = np.argsort(cluster_labels)
-        sorted_matrix = similarity_matrix.iloc[sorted_indices, sorted_indices]
-        
-        # Create heatmap
-        sns.heatmap(sorted_matrix, annot=False, cmap='viridis', 
-                   xticklabels=True, yticklabels=True)
-        
-        plt.title('Manuscript Similarity Matrix')
-        plt.xlabel('Manuscripts')
-        plt.ylabel('Manuscripts')
-        plt.xticks(rotation=45, ha='right')
-        plt.yticks(rotation=0)
-        plt.tight_layout()
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        plt.close()
-    
-    def generate_report(self, 
-                       clustering_result: Dict[str, Any],
-                       features_data: Dict[str, Dict]) -> str:
+        return output_file
+
+    def run_complete_analysis(self, 
+                            manuscript_paths: List[str],
+                            manuscript_names: Optional[List[str]] = None,
+                            output_dir: str = "clustering_analysis") -> Dict:
         """
-        Generate a comprehensive analysis report.
+        Run the complete deterministic clustering analysis pipeline.
         
         Args:
-            clustering_result: Results from clustering
-            features_data: Features extracted from manuscripts
+            manuscript_paths: List of paths to manuscript files
+            manuscript_names: Optional list of manuscript names
+            output_dir: Directory to save results
             
         Returns:
-            Report text
+            Dictionary with all analysis results
         """
-        report = []
-        report.append("# Greek Manuscript NLP Analysis Report")
-        report.append("=" * 50)
-        report.append("")
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Starting DETERMINISTIC NLP clustering analysis...")
+        print("All random states are fixed for reproducible results!")
         
-        # Basic statistics
-        n_manuscripts = len(clustering_result['manuscript_names'])
-        n_clusters = clustering_result['n_clusters']
-        silhouette = clustering_result['silhouette_score']
+        # Step 1: Preprocess manuscripts
+        processed_manuscripts = self.preprocess_manuscripts(manuscript_paths, manuscript_names)
         
-        report.append(f"## Analysis Summary")
-        report.append(f"- Number of manuscripts: {n_manuscripts}")
-        report.append(f"- Number of clusters: {n_clusters}")
-        report.append(f"- Clustering method: {clustering_result['method']}")
-        report.append(f"- Silhouette score: {silhouette:.3f}")
-        report.append("")
+        # Step 2: Extract features
+        features_data = self.extract_features(processed_manuscripts)
         
-        # Cluster assignments
-        report.append("## Cluster Assignments")
-        cluster_dict = {}
-        for i, (name, label) in enumerate(zip(clustering_result['manuscript_names'], 
-                                            clustering_result['cluster_labels'])):
-            if label not in cluster_dict:
-                cluster_dict[label] = []
-            cluster_dict[label].append(name)
+        # Step 3: Calculate similarities (deterministic)
+        similarities = self.similarity_calculator.calculate_multiple_similarities(
+            self.feature_matrices, self.manuscript_names
+        )
         
-        for cluster_id in sorted(cluster_dict.keys()):
-            manuscripts = cluster_dict[cluster_id]
-            report.append(f"**Cluster {cluster_id}** ({len(manuscripts)} manuscripts):")
-            for manuscript in manuscripts:
-                display_name = self.display_names.get(manuscript, manuscript)
-                report.append(f"  - {display_name}")
-            report.append("")
+        # Step 4: Perform clustering (with fixed random states)
+        clustering_results = self.perform_clustering()
         
-        # Feature importance
-        if features_data:
-            try:
-                importance = self.similarity_calculator.get_feature_importance(features_data)
-                top_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10]
-                
-                report.append("## Most Important Features")
-                for feature, score in top_features:
-                    report.append(f"- {feature}: {score:.4f}")
-                report.append("")
-            except Exception as e:
-                report.append(f"## Feature Importance")
-                report.append(f"Error calculating feature importance: {e}")
-                report.append("")
+        # Step 5: Find optimal clustering
+        optimal_clustering = self.find_optimal_clustering()
         
-        return "\n".join(report)
-    
-    def compare_multiple_manuscripts(self, 
-                                   manuscripts: Dict[str, str], 
-                                   display_names: Dict[str, str] = None,
-                                   method: str = 'hierarchical',
-                                   n_clusters: Optional[int] = None) -> Dict[str, Any]:
-        """
-        Complete workflow for comparing multiple manuscripts.
+        # Step 6: Create visualizations (with fixed random states)
+        visualization_files = self.create_visualizations(optimal_clustering, output_dir)
         
-        Args:
-            manuscripts: Dictionary mapping manuscript IDs to file paths
-            display_names: Dictionary mapping manuscript IDs to display names
-            method: Clustering method to use
-            n_clusters: Number of clusters (auto-determined if None)
-            
-        Returns:
-            Dictionary containing all analysis results
-        """
-        # Store display names
-        if display_names:
-            self.display_names = display_names
+        # Step 7: Generate report
+        report_file = os.path.join(output_dir, "clustering_analysis_report.txt")
+        self.generate_report(optimal_clustering, report_file)
         
-        # Extract manuscript paths and names
-        manuscript_names = list(manuscripts.keys())
-        manuscript_paths = list(manuscripts.values())
-        
-        print(f"Processing {len(manuscript_names)} manuscripts...")
-        
-        # Preprocess manuscripts
-        preprocessed_data = self.preprocess_manuscripts(manuscript_paths, manuscript_names)
-        print(f"Successfully preprocessed {len(preprocessed_data)} manuscripts")
-        
-        # Extract features
-        print("Extracting features...")
-        features_data = self.extract_features(preprocessed_data)
-        print(f"Successfully extracted features from {len(features_data)} manuscripts")
-        
-        # Calculate similarity matrix
-        print("Calculating similarity matrix...")
-        similarity_df = self.calculate_similarity_matrix(features_data)
-        print(f"Similarity matrix shape: {similarity_df.shape}")
-        
-        # Determine optimal number of clusters if not provided
-        if n_clusters is None:
-            n_clusters = min(6, max(2, len(manuscript_names) // 3))
-        
-        # Perform clustering
-        print(f"Performing clustering with {n_clusters} clusters...")
-        clustering_result = self.cluster_manuscripts(similarity_df, n_clusters, method)
-        print(f"Clustering completed. Silhouette score: {clustering_result['silhouette_score']:.3f}")
-        
-        # Generate visualizations
-        print("Generating visualizations...")
-        visualization_files = self.generate_visualizations(clustering_result)
-        print(f"Generated {len(visualization_files)} visualizations")
-        
-        # Generate report
-        print("Generating report...")
-        report = self.generate_report(clustering_result, features_data)
-        
-        # Save report
-        report_file = os.path.join(self.output_dir, 'analysis_report.txt')
-        with open(report_file, 'w', encoding='utf-8') as f:
-            f.write(report)
-        
-        # Save similarity matrix
-        similarity_file = os.path.join(self.output_dir, 'similarity_matrix.csv')
-        similarity_df.to_csv(similarity_file)
-        
-        print(f"Analysis complete. Results saved to {self.output_dir}")
-        
-        return {
-            'preprocessing_data': preprocessed_data,
+        results = {
+            'processed_manuscripts': processed_manuscripts,
             'features_data': features_data,
-            'similarity_matrix': similarity_df,
-            'clustering_result': clustering_result,
+            'similarity_matrices': similarities,
+            'clustering_results': clustering_results,
+            'optimal_clustering': optimal_clustering,
             'visualization_files': visualization_files,
-            'report': report,
             'report_file': report_file,
-            'similarity_file': similarity_file
-        } 
+            'output_directory': output_dir
+        }
+        
+        print(f"\nDETERMINISTIC analysis complete! Results saved to: {output_dir}")
+        print(f"Report: {report_file}")
+        
+        return results

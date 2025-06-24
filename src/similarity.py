@@ -1,204 +1,335 @@
 """
-Module for calculating NLP-based similarities between manuscripts.
-Simplified version focusing on essential NLP features.
+Module for calculating enhanced NLP-based similarities between manuscripts.
+Includes feature selection, dimensionality reduction, and multiple similarity metrics.
 """
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, List
-from sklearn.preprocessing import StandardScaler
-from sklearn.metrics.pairwise import cosine_similarity
+from typing import Dict, Any, List, Tuple, Optional
+from sklearn.preprocessing import StandardScaler, RobustScaler
+from sklearn.feature_selection import SelectKBest, f_classif, VarianceThreshold
+from sklearn.decomposition import PCA
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
+from scipy.spatial.distance import pdist, squareform
+from scipy.stats import pearsonr, spearmanr
+import warnings
 
 class SimilarityCalculator:
-    """Calculate similarities between manuscripts based on NLP features."""
+    """Calculate enhanced similarities between manuscripts for clustering."""
     
-    def __init__(self):
-        """Initialize similarity calculator."""
-        self.scaler = StandardScaler()
-    
+    def __init__(self, feature_selection_k: int = 100, pca_components: float = 0.95):
+        """
+        Initialize similarity calculator with feature selection and PCA.
+        
+        Args:
+            feature_selection_k: Number of top features to select
+            pca_components: Number of PCA components (if float, explained variance ratio)
+        """
+        self.scaler = RobustScaler()  # More robust to outliers than StandardScaler
+        self.feature_selector = SelectKBest(score_func=f_classif, k=feature_selection_k)
+        self.variance_filter = VarianceThreshold(threshold=0.01)  # Remove low-variance features
+        self.pca = PCA(n_components=pca_components, svd_solver='auto')
+        
+        self.is_fitted = False
+        self.feature_names = []
+        self.selected_features = []
+        
     def extract_nlp_features(self, features: Dict[str, Any]) -> np.ndarray:
         """
-        Extract NLP features from manuscript features.
+        Extract and flatten NLP features from manuscript features.
         
         Args:
-            features: Dictionary of extracted features
+            features: Dictionary of manuscript features
             
         Returns:
-            Numpy array with NLP feature vector
+            Flattened feature vector
         """
         feature_vector = []
+        feature_names = []
         
-        # Vocabulary richness features
+        # Extract vocabulary richness features
         if 'vocabulary_richness' in features:
-            vocab = features['vocabulary_richness']
-            feature_vector.extend([
-                vocab.get('unique_tokens_ratio', 0),
-                vocab.get('hapax_legomena_ratio', 0),
-                vocab.get('vocab_size', 0) / 1000.0,  # Normalize vocab size
-                vocab.get('total_tokens', 0) / 10000.0  # Normalize token count
-            ])
-        else:
-            feature_vector.extend([0, 0, 0, 0])
+            vocab_features = features['vocabulary_richness']
+            for key, value in vocab_features.items():
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'vocab_{key}')
         
-        # Sentence structure features
-        if 'sentence_stats' in features:
-            sent = features['sentence_stats']
-            feature_vector.extend([
-                sent.get('mean_sentence_length', 0) / 50.0,  # Normalize sentence length
-                sent.get('std_sentence_length', 0) / 20.0,   # Normalize std dev
-                sent.get('num_sentences', 0) / 1000.0        # Normalize sentence count
-            ])
-        else:
-            feature_vector.extend([0, 0, 0])
+        # Extract sentence complexity features
+        if 'sentence_complexity' in features:
+            sent_features = features['sentence_complexity']
+            for key, value in sent_features.items():
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'sent_{key}')
         
-        # Advanced NLP syntactic features (if available)
-        if 'nlp_features' in features and 'syntactic_features' in features:
-            syntactic = features['syntactic_features']
-            feature_vector.extend([
-                syntactic.get('noun_ratio', 0),
-                syntactic.get('verb_ratio', 0),
-                syntactic.get('adj_ratio', 0),
-                syntactic.get('adv_ratio', 0),
-                syntactic.get('function_word_ratio', 0),
-                syntactic.get('pronoun_ratio', 0),
-                syntactic.get('conjunction_ratio', 0),
-                syntactic.get('tag_diversity', 0),
-                syntactic.get('tag_entropy', 0),
-                syntactic.get('noun_verb_ratio', 0)
-            ])
-        else:
-            # If no advanced NLP features, use zeros
-            feature_vector.extend([0] * 10)
+        # Extract function word features
+        if 'function_words' in features:
+            func_features = features['function_words']
+            for key, value in func_features.items():
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'func_{key}')
         
-        # Character n-gram features (simplified)
-        if 'char_ngrams' in features:
-            char_features = features['char_ngrams']
-            # Use only the top character n-gram features
-            top_features = sorted(char_features.items(), key=lambda x: x[1], reverse=True)[:20]
-            for _, score in top_features:
-                feature_vector.append(score)
-            # Pad with zeros if we have fewer than 20 features
-            while len(feature_vector) < 37:  # 4 + 3 + 10 + 20 = 37
-                feature_vector.append(0)
-        else:
-            feature_vector.extend([0] * 20)
+        # Extract morphological features
+        if 'morphological' in features:
+            morph_features = features['morphological']
+            for key, value in morph_features.items():
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'morph_{key}')
         
-        return np.array(feature_vector, dtype=float)
+        # Extract semantic features
+        if 'semantic' in features:
+            sem_features = features['semantic']
+            for key, value in sem_features.items():
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'sem_{key}')
+        
+        # Extract punctuation features
+        if 'punctuation' in features:
+            punct_features = features['punctuation']
+            for key, value in punct_features.items():
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'punct_{key}')
+        
+        # Extract TF-IDF features (sample top features to avoid dimensionality explosion)
+        if 'tfidf' in features:
+            tfidf_features = features['tfidf']
+            # Sort by value and take top features
+            sorted_tfidf = sorted(tfidf_features.items(), key=lambda x: x[1], reverse=True)[:50]
+            for key, value in sorted_tfidf:
+                if isinstance(value, (int, float)) and not np.isnan(value):
+                    feature_vector.append(float(value))
+                    feature_names.append(f'tfidf_{key}')
+        
+        # Extract n-gram features (sample top features)
+        for ngram_type in ['word_bigrams', 'word_trigrams']:
+            if ngram_type in features:
+                ngram_features = features[ngram_type]
+                # Sort by frequency and take top features
+                sorted_ngrams = sorted(ngram_features.items(), key=lambda x: x[1], reverse=True)[:20]
+                for ngram, freq in sorted_ngrams:
+                    if isinstance(freq, (int, float)) and not np.isnan(freq):
+                        feature_vector.append(float(freq))
+                        feature_names.append(f'{ngram_type}_{str(ngram)[:20]}')  # Truncate long n-gram names
+        
+        if not self.is_fitted:
+            self.feature_names = feature_names
+        
+        return np.array(feature_vector)
     
-    def calculate_similarity_matrix(self, features_data: Dict[str, Dict]) -> pd.DataFrame:
+    def fit_transform_features(self, feature_matrices: List[np.ndarray], manuscript_names: List[str]) -> np.ndarray:
         """
-        Calculate similarity matrix between all manuscripts.
+        Fit preprocessing pipeline and transform features.
         
         Args:
-            features_data: Dictionary mapping manuscript names to their features
+            feature_matrices: List of feature vectors for each manuscript
+            manuscript_names: List of manuscript names
             
         Returns:
-            DataFrame containing pairwise similarities
+            Transformed feature matrix
         """
-        manuscript_names = list(features_data.keys())
+        # Stack feature matrices
+        X = np.vstack(feature_matrices)
         
-        # Extract feature vectors for all manuscripts
-        feature_vectors = []
-        for name in manuscript_names:
-            vector = self.extract_nlp_features(features_data[name])
-            feature_vectors.append(vector)
+        # Handle missing values
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
         
-        # Convert to numpy array and standardize
-        feature_matrix = np.array(feature_vectors)
+        print(f"Original feature matrix shape: {X.shape}")
         
-        # Handle case where all features are zero
-        if np.all(feature_matrix == 0):
-            print("Warning: All feature vectors are zero. Using identity matrix.")
-            similarity_matrix = np.eye(len(manuscript_names))
+        # Remove low-variance features
+        X_filtered = self.variance_filter.fit_transform(X)
+        print(f"After variance filtering: {X_filtered.shape}")
+        
+        # Scale features
+        X_scaled = self.scaler.fit_transform(X_filtered)
+        
+        # Apply PCA for dimensionality reduction
+        X_pca = self.pca.fit_transform(X_scaled)
+        print(f"After PCA: {X_pca.shape}")
+        print(f"Explained variance ratio: {self.pca.explained_variance_ratio_.sum():.3f}")
+        
+        self.is_fitted = True
+        return X_pca
+    
+    def transform_features(self, feature_matrices: List[np.ndarray]) -> np.ndarray:
+        """
+        Transform new feature matrices using fitted pipeline.
+        
+        Args:
+            feature_matrices: List of feature vectors
+            
+        Returns:
+            Transformed feature matrix
+        """
+        if not self.is_fitted:
+            raise ValueError("Must fit the pipeline first")
+        
+        X = np.vstack(feature_matrices)
+        X = np.nan_to_num(X, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        X_filtered = self.variance_filter.transform(X)
+        X_scaled = self.scaler.transform(X_filtered)
+        X_pca = self.pca.transform(X_scaled)
+        
+        return X_pca
+    
+    def calculate_similarity_matrix(self, feature_matrix: np.ndarray, 
+                                   metric: str = 'cosine') -> np.ndarray:
+        """
+        Calculate similarity matrix using specified metric.
+        
+        Args:
+            feature_matrix: Transformed feature matrix
+            metric: Similarity metric ('cosine', 'euclidean', 'correlation')
+            
+        Returns:
+            Similarity matrix
+        """
+        if metric == 'cosine':
+            # Cosine similarity (higher = more similar)
+            return cosine_similarity(feature_matrix)
+        
+        elif metric == 'euclidean':
+            # Convert Euclidean distance to similarity (lower distance = higher similarity)
+            distances = euclidean_distances(feature_matrix)
+            # Normalize to [0, 1] similarity scale
+            max_dist = np.max(distances)
+            similarities = 1 - (distances / max_dist) if max_dist > 0 else np.ones_like(distances)
+            return similarities
+        
+        elif metric == 'correlation':
+            # Pearson correlation as similarity
+            n = feature_matrix.shape[0]
+            corr_matrix = np.zeros((n, n))
+            
+            for i in range(n):
+                for j in range(n):
+                    if i == j:
+                        corr_matrix[i, j] = 1.0
+                    else:
+                        try:
+                            corr, _ = pearsonr(feature_matrix[i], feature_matrix[j])
+                            corr_matrix[i, j] = corr if not np.isnan(corr) else 0.0
+                        except:
+                            corr_matrix[i, j] = 0.0
+            
+            # Convert to [0, 1] scale (correlation is [-1, 1])
+            return (corr_matrix + 1) / 2
+        
         else:
-            # Standardize features
+            raise ValueError(f"Unknown metric: {metric}")
+    
+    def calculate_multiple_similarities(self, feature_matrices: List[np.ndarray], 
+                                      manuscript_names: List[str]) -> Dict[str, np.ndarray]:
+        """
+        Calculate multiple similarity matrices for ensemble clustering.
+        
+        Args:
+            feature_matrices: List of feature vectors
+            manuscript_names: List of manuscript names
+            
+        Returns:
+            Dictionary of similarity matrices for different metrics
+        """
+        # Transform features
+        X_transformed = self.fit_transform_features(feature_matrices, manuscript_names)
+        
+        # Calculate similarities using different metrics
+        similarities = {}
+        
+        for metric in ['cosine', 'euclidean', 'correlation']:
             try:
-                feature_matrix_scaled = self.scaler.fit_transform(feature_matrix)
-            except ValueError as e:
-                print(f"Warning: Scaling failed ({e}). Using unscaled features.")
-                feature_matrix_scaled = feature_matrix
-            
-            # Calculate cosine similarity
-            similarity_matrix = cosine_similarity(feature_matrix_scaled)
+                sim_matrix = self.calculate_similarity_matrix(X_transformed, metric)
+                similarities[metric] = sim_matrix
+                print(f"{metric.capitalize()} similarity calculated")
+            except Exception as e:
+                print(f"Warning: Could not calculate {metric} similarity: {e}")
         
-        # Convert to DataFrame
-        similarity_df = pd.DataFrame(
-            similarity_matrix,
-            index=manuscript_names,
-            columns=manuscript_names
-        )
-        
-        return similarity_df
+        return similarities
     
-    def calculate_pairwise_similarity(self, features1: Dict[str, Any], features2: Dict[str, Any]) -> float:
+    def get_feature_importance(self) -> Dict[str, float]:
         """
-        Calculate similarity between two manuscripts.
+        Get feature importance from PCA components.
+        
+        Returns:
+            Dictionary of feature importance scores
+        """
+        if not self.is_fitted:
+            return {}
+        
+        # Calculate feature importance from PCA components
+        # Use the sum of absolute loadings across all components
+        feature_importance = {}
+        
+        if hasattr(self.pca, 'components_'):
+            n_features = self.pca.components_.shape[1]
+            importance_scores = np.sum(np.abs(self.pca.components_), axis=0)
+            
+            # Get feature names that survived variance filtering
+            surviving_features = np.array(self.feature_names)[self.variance_filter.get_support()]
+            
+            if len(surviving_features) == len(importance_scores):
+                for feature, score in zip(surviving_features, importance_scores):
+                    feature_importance[feature] = float(score)
+        
+        return feature_importance
+    
+    def ensemble_similarity(self, similarities: Dict[str, np.ndarray], 
+                           weights: Optional[Dict[str, float]] = None) -> np.ndarray:
+        """
+        Create ensemble similarity matrix by combining multiple metrics.
         
         Args:
-            features1: Features of first manuscript
-            features2: Features of second manuscript
+            similarities: Dictionary of similarity matrices
+            weights: Optional weights for each similarity metric
             
         Returns:
-            Similarity score between 0 and 1
+            Ensemble similarity matrix
         """
-        # Extract feature vectors
-        vector1 = self.extract_nlp_features(features1)
-        vector2 = self.extract_nlp_features(features2)
+        if not similarities:
+            raise ValueError("No similarity matrices provided")
         
-        # Calculate cosine similarity
-        if np.all(vector1 == 0) and np.all(vector2 == 0):
-            return 1.0  # Both empty, consider similar
-        elif np.all(vector1 == 0) or np.all(vector2 == 0):
-            return 0.0  # One empty, not similar
+        if weights is None:
+            # Equal weights
+            weights = {metric: 1.0 for metric in similarities.keys()}
         
-        # Normalize vectors
-        norm1 = np.linalg.norm(vector1)
-        norm2 = np.linalg.norm(vector2)
+        # Normalize weights
+        total_weight = sum(weights.values())
+        weights = {k: v / total_weight for k, v in weights.items()}
         
-        if norm1 == 0 or norm2 == 0:
-            return 0.0
+        # Combine similarities
+        ensemble_sim = None
         
-        # Calculate cosine similarity
-        similarity = np.dot(vector1, vector2) / (norm1 * norm2)
+        for metric, sim_matrix in similarities.items():
+            weight = weights.get(metric, 0.0)
+            if weight > 0:
+                if ensemble_sim is None:
+                    ensemble_sim = weight * sim_matrix
+                else:
+                    ensemble_sim += weight * sim_matrix
         
-        # Ensure similarity is between 0 and 1
-        return max(0, min(1, similarity))
+        return ensemble_sim if ensemble_sim is not None else np.eye(len(similarities[list(similarities.keys())[0]]))
     
-    def get_feature_importance(self, features_data: Dict[str, Dict]) -> Dict[str, float]:
+    def get_distance_matrix(self, similarity_matrix: np.ndarray) -> np.ndarray:
         """
-        Calculate feature importance based on variance across manuscripts.
+        Convert similarity matrix to distance matrix for clustering.
         
         Args:
-            features_data: Dictionary mapping manuscript names to their features
+            similarity_matrix: Similarity matrix
             
         Returns:
-            Dictionary mapping feature names to importance scores
+            Distance matrix
         """
-        # Feature names corresponding to the feature vector
-        feature_names = [
-            'unique_tokens_ratio', 'hapax_legomena_ratio', 'vocab_size_norm', 'total_tokens_norm',
-            'mean_sentence_length_norm', 'std_sentence_length_norm', 'num_sentences_norm',
-            'noun_ratio', 'verb_ratio', 'adj_ratio', 'adv_ratio', 'function_word_ratio',
-            'pronoun_ratio', 'conjunction_ratio', 'tag_diversity', 'tag_entropy', 'noun_verb_ratio'
-        ] + [f'char_ngram_{i}' for i in range(20)]
+        # Convert similarity to distance: distance = 1 - similarity
+        # Ensure similarity is in [0, 1] range
+        sim_normalized = np.clip(similarity_matrix, 0, 1)
+        distance_matrix = 1 - sim_normalized
         
-        # Extract all feature vectors
-        feature_vectors = []
-        for features in features_data.values():
-            vector = self.extract_nlp_features(features)
-            feature_vectors.append(vector)
+        # Ensure diagonal is zero (distance from item to itself)
+        np.fill_diagonal(distance_matrix, 0)
         
-        feature_matrix = np.array(feature_vectors)
-        
-        # Calculate variance for each feature
-        feature_variances = np.var(feature_matrix, axis=0)
-        
-        # Create importance dictionary
-        importance = {}
-        for i, name in enumerate(feature_names):
-            if i < len(feature_variances):
-                importance[name] = float(feature_variances[i])
-            else:
-                importance[name] = 0.0
-        
-        return importance 
+        return distance_matrix 

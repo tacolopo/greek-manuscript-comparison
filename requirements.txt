@@ -1,18 +1,42 @@
-numpy==1.24.3
-scipy==1.10.1
-scikit-learn==1.2.2
-nltk==3.8.1
-gensim==4.3.1
-matplotlib==3.7.1
-pandas==2.0.1
-spacy==3.5.3
-tqdm==4.65.0
-cltk==1.1.6  # Classical Language Toolkit for Greek text processing
-greek-accentuation==1.2.0  # For handling Greek accentuation
-scikit-learn-extra==0.2.0  # Additional clustering algorithms
-networkx==3.1  # For graph-based analysis
-pyvis==0.3.2  # Interactive network visualization
-seaborn==0.12.2  # Enhanced visualization
-transformers==4.30.2  # For transformer-based models
-torch==2.0.1  # PyTorch for deep learning
-sentence-transformers==2.2.2  # For semantic embeddings 
+# Core dependencies
+numpy>=1.21.0
+pandas>=1.5.0
+scikit-learn>=1.3.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+tqdm>=4.64.0
+
+# Enhanced ML libraries
+scipy>=1.9.0
+umap-learn>=0.5.0
+hdbscan>=0.8.28
+
+# NLP libraries
+nltk>=3.8
+spacy>=3.4.0
+cltk>=1.1.0
+transformers>=4.20.0
+sentence-transformers>=2.2.0
+torch>=1.12.0
+
+# Greek language processing
+polyglot>=16.7.4
+
+# Data visualization
+plotly>=5.10.0
+
+# Optional dependencies for advanced features
+datasets>=2.0.0
+tokenizers>=0.12.0
+
+# Additional clustering algorithms
+scikit-learn-extra==0.2.0
+
+# For graph-based analysis
+networkx==3.1
+
+# Interactive network visualization
+pyvis==0.3.2
+
+# For transformer-based models
+gensim==4.3.1 
