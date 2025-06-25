@@ -13,7 +13,7 @@ from src import MultipleManuscriptComparison
 
 def collect_manuscripts_by_book(data_dir: str) -> dict:
     """
-    Collect and combine manuscript files by complete books/letters.
+    Collect and combine manuscript files by complete books/letters, including Julian's letters.
     
     Args:
         data_dir: Path to data directory containing text files
@@ -21,7 +21,7 @@ def collect_manuscripts_by_book(data_dir: str) -> dict:
     Returns:
         Dictionary mapping book names to combined text content
     """
-    # Mapping from codes to readable names
+    # Mapping from codes to readable names for biblical texts
     book_name_mapping = {
         '070_MAT': 'Matthew',
         '071_MRK': 'Mark', 
@@ -52,11 +52,25 @@ def collect_manuscripts_by_book(data_dir: str) -> dict:
         '096_REV': 'Revelation'
     }
     
+    # Mapping for Julian's letters (Greek titles to English translations)
+    julian_name_mapping = {
+        'Διονυσίῳ.txt': 'Julian: To Dionysius',
+        'Λιβανίῳ σοφιστῇ καὶ κοιαίστωρι.txt': 'Julian: To Libanius the Sophist',
+        'Σαραπίωνι τῷ λαμπροτάτῳ.txt': 'Julian: To Sarapion the Most Illustrious',
+        'Τῷ αὐτῷ.txt': 'Julian: To the Same Person',
+        'φραγμεντυμ επιστολαε.txt': 'Julian: Letter Fragment',
+        'Ἀνεπίγραφος ὑπὲρ Ἀργείων.txt': 'Julian: Untitled Letter about the Argives'
+    }
+    
     manuscripts = {}
     
-    # Look for text files in subdirectories
+    # Process biblical texts (multi-chapter books)
     chapter_files = {}
     for root, dirs, files in os.walk(data_dir):
+        # Skip Julian directory for now
+        if 'Julian' in root:
+            continue
+            
         for file in files:
             if file.endswith('.txt') and '_read' in file:
                 full_path = os.path.join(root, file)
@@ -89,6 +103,22 @@ def collect_manuscripts_by_book(data_dir: str) -> dict:
             # Use readable book name
             readable_name = book_name_mapping.get(book_key, book_key)
             manuscripts[readable_name] = combined_text.strip()
+    
+    # Process Julian's letters (single files)
+    julian_dir = os.path.join(data_dir, 'Julian')
+    if os.path.exists(julian_dir):
+        for file in os.listdir(julian_dir):
+            if file.endswith('.txt'):
+                file_path = os.path.join(julian_dir, file)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        text = f.read().strip()
+                        if text:
+                            # Use English translation for the name
+                            readable_name = julian_name_mapping.get(file, f"Julian: {file.replace('.txt', '')}")
+                            manuscripts[readable_name] = text
+                except Exception as e:
+                    print(f"Warning: Could not read Julian letter {file}: {e}")
     
     return manuscripts
 

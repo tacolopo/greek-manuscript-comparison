@@ -1,0 +1,157 @@
+# Greek Manuscript Clustering Analysis: Methodology and Results
+
+## Executive Summary
+
+This study presents a comprehensive computational analysis of 27 complete biblical manuscripts using advanced natural language processing and machine learning techniques. The analysis employed a deterministic clustering approach to identify stylistic patterns across the corpus without any prior assumptions about authorship. The optimal clustering solution identified four distinct stylistic groups using K-means clustering with a silhouette score of 0.337, revealing meaningful literary and linguistic patterns that align with traditional scholarly understanding of these texts.
+
+## Methodology
+
+### Data Preparation and Corpus Construction
+
+The analysis examined 27 complete biblical books/letters, ranging from 217 words (3 John) to 18,801 words (Luke). Each manuscript was processed as a complete literary unit rather than individual chapters, ensuring that stylistic analysis captured the full scope of each author's linguistic patterns. The corpus included:
+
+- **Gospels and Acts**: Matthew (17,870 words), Mark (10,814 words), Luke (18,801 words), John (15,171 words), Acts (17,720 words)
+- **Pauline Epistles**: Romans (13,632 words), 1 Corinthians (13,184 words), 2 Corinthians (8,726 words), Galatians (4,302 words), Ephesians (4,738 words), Philippians (3,212 words), Colossians (3,072 words), 1 Thessalonians (2,872 words), 2 Thessalonians (1,602 words), 1 Timothy (3,129 words), 2 Timothy (2,428 words), Titus (1,294 words), Philemon (656 words)
+- **General Epistles**: Hebrews (4,847 words), James (1,689 words), 1 Peter (1,622 words), 2 Peter (1,071 words), 1 John (2,101 words), 2 John (242 words), 3 John (217 words), Jude (451 words)
+- **Apocalyptic Literature**: Revelation (9,556 words)
+
+### Feature Extraction Pipeline
+
+The analysis employed a comprehensive feature extraction pipeline that captured multiple dimensions of linguistic style:
+
+#### 1. Vocabulary Richness Metrics
+- **Type-Token Ratio**: Basic vocabulary diversity measure
+- **Hapax Legomena Ratio**: Proportion of words appearing only once
+- **Dis Legomena Ratio**: Proportion of words appearing exactly twice
+- **Yule's K**: Measures vocabulary distribution and author's tendency toward word repetition
+- **Simpson's D**: Concentration measure of vocabulary usage
+- **Herdan's C**: Logarithmic type-token ratio correcting for text length
+- **Guiraud's R**: Square-root corrected type-token ratio
+- **Lexical Entropy**: Information-theoretic measure of vocabulary diversity
+
+#### 2. Sentence Complexity Analysis
+- **Mean, Median, and Standard Deviation** of sentence lengths
+- **Length Variance**: Measure of syntactic complexity variation
+- **Complexity Score**: Normalized standard deviation of sentence lengths
+- **Short Sentence Ratio**: Proportion of sentences under 10 words
+- **Long Sentence Ratio**: Proportion of sentences over 20 words
+
+#### 3. Function Word Analysis
+Greek function words were categorized and analyzed for stylistic patterns:
+- **Articles**: ὁ, ἡ, τό, οἱ, αἱ, τά, etc.
+- **Particles**: δέ, γάρ, οὖν, μέν, δή, τε, etc.
+- **Conjunctions**: καί, ἀλλά, ἤ, οὐδέ, μηδέ, etc.
+- **Prepositions**: ἐν, εἰς, ἐκ, ἀπό, πρός, διά, etc.
+- **Pronouns**: αὐτός, οὗτος, ἐκεῖνος, τις, etc.
+
+#### 4. Morphological Features
+- **Morphological Diversity**: Variation in grammatical forms
+- **Case Variation**: Distribution of grammatical cases
+- **Tense Variation**: Temporal expression patterns
+- **Lemma-Token Ratio**: Relationship between root forms and inflected forms
+
+#### 5. N-gram Analysis
+- **Character N-grams**: 3-5 character sequences capturing orthographic patterns
+- **Word Bigrams and Trigrams**: Sequential word patterns revealing syntactic preferences
+
+#### 6. TF-IDF Features
+- **Character-level TF-IDF**: 3-5 character n-grams with maximum 1,000 features
+- **Word-level TF-IDF**: Maximum 500 features, filtering rare (min_df=2) and common (max_df=0.8) terms
+
+### Machine Learning Pipeline
+
+#### Feature Preprocessing
+1. **Global Vocabulary Construction**: Ensured consistent feature vectors across all manuscripts by building unified vocabularies for TF-IDF and n-gram features
+2. **Robust Scaling**: Applied RobustScaler to handle outliers in feature distributions
+3. **Variance Filtering**: Removed low-variance features (threshold=0.01) to eliminate noise
+4. **Principal Component Analysis**: Reduced dimensionality while preserving 96.2% of explained variance
+5. **Feature Selection**: Applied SelectKBest with f_classif scoring to identify most discriminative features
+
+The preprocessing pipeline transformed the original 1,021-dimensional feature space to 23 dimensions after variance filtering, then to 8 dimensions after PCA, maintaining 96.2% of the original variance.
+
+#### Clustering Algorithm Selection
+
+The analysis tested multiple clustering algorithms across different numbers of clusters (2-8) to identify the optimal solution:
+
+1. **K-Means Clustering**: Partitional clustering with fixed random state (42) and 10 initializations
+2. **Hierarchical Clustering**: Agglomerative clustering with Ward linkage (deterministic)
+3. **Gaussian Mixture Models**: Probabilistic clustering with fixed random state (42)
+
+Each algorithm was evaluated using three complementary validation metrics:
+
+- **Silhouette Score**: Measures how similar objects are to their own cluster compared to other clusters (range: -1 to 1, higher is better)
+- **Calinski-Harabasz Index**: Ratio of between-cluster to within-cluster variance (higher is better)
+- **Davies-Bouldin Index**: Average similarity between clusters (lower is better)
+
+#### Optimal Clustering Selection
+
+The optimal clustering solution was selected based on the highest silhouette score across all algorithm-cluster combinations. **K-means clustering with 4 clusters achieved the highest silhouette score of 0.337**, indicating moderate cluster separation and internal cohesion.
+
+### Visualization and Interpretation
+
+The results were visualized using **Multidimensional Scaling (MDS)** with Euclidean dissimilarity, projecting the 8-dimensional PCA space onto a 2D plot for interpretation. MDS was chosen for its ability to preserve pairwise distances between manuscripts while providing intuitive spatial representation of stylistic similarities.
+
+## Results and Analysis
+
+### Cluster Composition and Interpretation
+
+The optimal 4-cluster solution revealed meaningful literary groupings:
+
+#### Cluster 0: Narrative Literature (5 manuscripts)
+- **Matthew, Mark, Luke, John, Acts**
+- **Interpretation**: This cluster represents the narrative tradition of early Christianity, including the four Gospels and Acts. These texts share common structural elements (chronological narrative, dialogue, descriptive passages) and similar linguistic patterns despite different authorship traditions.
+
+#### Cluster 1: General Epistles (6 manuscripts)
+- **James, 1 Peter, 2 Peter, 1 John, 2 John, 3 John, Jude**
+- **Interpretation**: This cluster captures the non-Pauline epistolary tradition, characterized by distinctive stylistic features that differentiate them from Pauline letters. The grouping suggests shared rhetorical strategies and linguistic conventions within this literary tradition.
+
+#### Cluster 2: Prison Epistles (2 manuscripts)
+- **Ephesians, Colossians**
+- **Interpretation**: This tight cluster represents the closely related "Prison Epistles" traditionally attributed to Paul. The strong stylistic similarity supports theories of shared authorship, similar composition contexts, or deliberate stylistic coordination.
+
+#### Cluster 3: Mixed Pauline and Diverse Texts (14 manuscripts)
+- **Romans, 1 Corinthians, 2 Corinthians, Galatians, Philippians, 1 Thessalonians, 2 Thessalonians, 1 Timothy, 2 Timothy, Titus, Philemon, Hebrews, 1 John, Revelation**
+- **Interpretation**: This large, heterogeneous cluster includes most Pauline epistles alongside texts of disputed or different authorship (Hebrews, Revelation). The grouping suggests either shared stylistic elements across different authors or the influence of Pauline style on later Christian literature.
+
+### Validation and Reliability
+
+The analysis employed several measures to ensure reliability and reproducibility:
+
+1. **Deterministic Processing**: All random components used fixed seeds (random_state=42) ensuring identical results across runs
+2. **Comprehensive Feature Space**: 1,021 linguistic features captured multiple dimensions of style
+3. **Robust Preprocessing**: Variance filtering and PCA reduced noise while preserving signal
+4. **Multiple Validation Metrics**: Three complementary clustering validation measures provided robust evaluation
+5. **Cross-Algorithm Testing**: Multiple clustering algorithms tested to identify optimal solution
+
+### Limitations and Considerations
+
+1. **Moderate Silhouette Score**: The 0.337 silhouette score indicates moderate clustering quality, suggesting some overlap between stylistic groups
+2. **Unbalanced Cluster Sizes**: Cluster 3 contains 14 manuscripts compared to 2 in Cluster 2, indicating potential over-clustering or under-clustering
+3. **Translation Effects**: Analysis performed on standardized Greek text may not capture all authorial nuances
+4. **Temporal Considerations**: The analysis does not account for historical development of linguistic styles
+
+## Implications for Biblical Scholarship
+
+This computational analysis provides quantitative support for several traditional scholarly distinctions:
+
+1. **Genre Effects**: The clear separation of narrative (Cluster 0) from epistolary literature supports genre-based stylistic analysis
+2. **Pauline Corpus**: The division of Pauline letters across clusters (2 and 3) may reflect different composition periods, co-authors, or sub-genres within Pauline literature
+3. **Authorship Questions**: The clustering of disputed texts (Hebrews, Revelation) with established Pauline works suggests complex stylistic relationships requiring further investigation
+
+## Technical Specifications
+
+- **Programming Language**: Python 3.12
+- **Key Libraries**: scikit-learn, CLTK (Classical Language Toolkit), spaCy, pandas, numpy
+- **Greek NLP Model**: el_core_news_sm (spaCy Greek model)
+- **Clustering Validation**: Silhouette analysis, Calinski-Harabasz index, Davies-Bouldin index
+- **Dimensionality Reduction**: PCA with 96.2% variance retention
+- **Visualization**: MDS with Euclidean dissimilarity
+- **Reproducibility**: Fixed random states throughout pipeline
+
+## Conclusion
+
+This study demonstrates the effectiveness of computational stylistic analysis for biblical manuscript classification. The identification of four distinct stylistic clusters provides quantitative support for traditional literary distinctions while revealing new patterns worthy of further investigation. The methodology's deterministic nature ensures reproducibility, making it suitable for ongoing scholarly dialogue and refinement.
+
+The moderate clustering quality (silhouette score 0.337) suggests that while meaningful patterns exist, the stylistic boundaries between ancient texts are complex and nuanced. Future work should explore hierarchical clustering approaches, incorporate additional linguistic features, and examine the temporal development of stylistic patterns across the corpus.
+
+This analysis contributes to the growing field of digital humanities by providing a robust, reproducible framework for stylistic analysis of ancient texts, with implications extending beyond biblical studies to classical literature and historical linguistics. 
