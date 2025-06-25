@@ -11,26 +11,84 @@ import os
 import glob
 from src import MultipleManuscriptComparison
 
-def collect_manuscripts(data_dir: str) -> dict:
+def collect_manuscripts_by_book(data_dir: str) -> dict:
     """
-    Collect manuscript files from the data directory.
+    Collect and combine manuscript files by complete books/letters.
     
     Args:
         data_dir: Path to data directory containing text files
         
     Returns:
-        Dictionary mapping manuscript names to file paths
+        Dictionary mapping book names to combined text content
     """
+    # Mapping from codes to readable names
+    book_name_mapping = {
+        '070_MAT': 'Matthew',
+        '071_MRK': 'Mark', 
+        '072_LUK': 'Luke',
+        '073_JHN': 'John',
+        '074_ACT': 'Acts',
+        '075_ROM': 'Romans',
+        '076_1CO': '1 Corinthians',
+        '077_2CO': '2 Corinthians',
+        '078_GAL': 'Galatians',
+        '079_EPH': 'Ephesians',
+        '080_PHP': 'Philippians',
+        '081_COL': 'Colossians',
+        '082_1TH': '1 Thessalonians',
+        '083_2TH': '2 Thessalonians',
+        '084_1TI': '1 Timothy',
+        '085_2TI': '2 Timothy',
+        '086_TIT': 'Titus',
+        '087_PHM': 'Philemon',
+        '088_HEB': 'Hebrews',
+        '089_JAS': 'James',
+        '090_1PE': '1 Peter',
+        '091_2PE': '2 Peter',
+        '092_1JN': '1 John',
+        '093_2JN': '2 John',
+        '094_3JN': '3 John',
+        '095_JUD': 'Jude',
+        '096_REV': 'Revelation'
+    }
+    
     manuscripts = {}
     
     # Look for text files in subdirectories
+    chapter_files = {}
     for root, dirs, files in os.walk(data_dir):
         for file in files:
             if file.endswith('.txt') and '_read' in file:
                 full_path = os.path.join(root, file)
-                # Create a clean name from the file
+                # Extract book code (e.g., "075_ROM" from "grcsbl_075_ROM_01_read.txt")
                 name = file.replace('_read.txt', '').replace('grcsbl_', '')
-                manuscripts[name] = full_path
+                parts = name.split('_')
+                if len(parts) >= 2:
+                    book_key = f"{parts[0]}_{parts[1]}"  # e.g., "075_ROM"
+                    if book_key not in chapter_files:
+                        chapter_files[book_key] = []
+                    chapter_files[book_key].append(full_path)
+    
+    # Combine chapters into complete books
+    for book_key, file_paths in chapter_files.items():
+        # Sort files by chapter number
+        file_paths.sort(key=lambda x: int(x.split('_')[-2]))  # Sort by chapter number
+        
+        # Read and combine all chapters
+        combined_text = ""
+        for file_path in file_paths:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    chapter_text = f.read().strip()
+                    if chapter_text:
+                        combined_text += chapter_text + "\n\n"
+            except Exception as e:
+                print(f"Warning: Could not read {file_path}: {e}")
+        
+        if combined_text.strip():
+            # Use readable book name
+            readable_name = book_name_mapping.get(book_key, book_key)
+            manuscripts[readable_name] = combined_text.strip()
     
     return manuscripts
 
@@ -46,22 +104,20 @@ def main():
         print(f"Error: Data directory '{data_dir}' not found!")
         return
     
-    print("Collecting manuscripts...")
-    manuscripts = collect_manuscripts(data_dir)
+    print("Collecting manuscripts by complete books/letters...")
+    manuscripts = collect_manuscripts_by_book(data_dir)
     
     if not manuscripts:
         print("No manuscripts found! Please check the data directory.")
         return
     
-    print(f"Found {len(manuscripts)} manuscripts")
+    print(f"Found {len(manuscripts)} complete books/letters")
     
-    # Show first few manuscripts
-    print("\nFirst 10 manuscripts:")
-    for i, name in enumerate(list(manuscripts.keys())[:10]):
-        print(f"  {i+1}. {name}")
-    
-    if len(manuscripts) > 10:
-        print(f"  ... and {len(manuscripts) - 10} more")
+    # Show all manuscripts since there should be a reasonable number
+    print(f"\nComplete books/letters to analyze:")
+    for i, (name, text) in enumerate(manuscripts.items()):
+        word_count = len(text.split())
+        print(f"  {i+1}. {name} ({word_count:,} words)")
     
     # Initialize the enhanced comparison system
     print("\nInitializing enhanced NLP analysis system...")
@@ -69,16 +125,16 @@ def main():
     try:
         comparator = MultipleManuscriptComparison(use_advanced_nlp=True)
         
-        # Prepare manuscript paths and names
-        manuscript_paths = list(manuscripts.values())
+        # Prepare manuscript texts and names
+        manuscript_texts = list(manuscripts.values())
         manuscript_names = list(manuscripts.keys())
         
         # Run the complete analysis
         print("\nRunning complete enhanced clustering analysis...")
-        print("This may take several minutes depending on the number of manuscripts...")
+        print("This analyzes complete books/letters, not individual chapters...")
         
-        results = comparator.run_complete_analysis(
-            manuscript_paths=manuscript_paths,
+        results = comparator.run_complete_analysis_from_texts(
+            manuscript_texts=manuscript_texts,
             manuscript_names=manuscript_names,
             output_dir="enhanced_clustering_results"
         )
@@ -101,20 +157,9 @@ def main():
     except Exception as e:
         print(f"\nError during analysis: {e}")
         print("This might be due to missing dependencies or data issues.")
-        print("Try running with fewer manuscripts or check the requirements.")
-        
-        # Fallback: basic analysis
-        print("\nAttempting basic analysis without advanced NLP...")
-        try:
-            comparator = MultipleManuscriptComparison(use_advanced_nlp=False)
-            results = comparator.run_complete_analysis(
-                manuscript_paths=manuscript_paths[:20],  # Limit to first 20
-                manuscript_names=manuscript_names[:20],
-                output_dir="basic_clustering_results"
-            )
-            print("Basic analysis completed successfully!")
-        except Exception as e2:
-            print(f"Basic analysis also failed: {e2}")
+        print("Check the error details above and ensure all requirements are installed.")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     main() 

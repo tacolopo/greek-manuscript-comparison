@@ -39,4 +39,4 @@ networkx==3.1
 pyvis==0.3.2
 
 # For transformer-based models
-gensim==4.3.1 
+gensim>=4.3.2 

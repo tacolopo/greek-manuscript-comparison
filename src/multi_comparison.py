@@ -71,7 +71,7 @@ class MultipleManuscriptComparison:
                 with open(path, 'r', encoding='utf-8') as f:
                     text = f.read()
                 
-                preprocessed = self.preprocessor.preprocess_text(text)
+                preprocessed = self.preprocessor.preprocess(text)
                 
                 if self.use_advanced_nlp and self.advanced_processor:
                     try:
@@ -101,26 +101,38 @@ class MultipleManuscriptComparison:
         self.feature_extractor.fit(all_texts)
         
         features_data = {}
-        feature_matrices = []
-        manuscript_names = []
         
+        # First pass: extract all features
         for name, preprocessed in tqdm(processed_manuscripts.items(), desc="Extracting features"):
             try:
                 features = self.feature_extractor.extract_all_features(
                     preprocessed, self.advanced_processor
                 )
                 features_data[name] = features
-                
+            except Exception as e:
+                print(f"Error extracting features for {name}: {e}")
+                continue
+        
+        # Build global vocabulary for consistent feature vectors
+        self.similarity_calculator.build_global_vocabulary(list(features_data.values()))
+        
+        # Second pass: create consistent feature vectors
+        feature_matrices = []
+        manuscript_names = []
+        
+        for name, features in tqdm(features_data.items(), desc="Creating feature vectors"):
+            try:
                 feature_vector = self.similarity_calculator.extract_nlp_features(features)
                 
                 if len(feature_vector) > 0:
                     feature_matrices.append(feature_vector)
                     manuscript_names.append(name)
+                    print(f"Feature vector for {name}: {len(feature_vector)} dimensions")
                 else:
                     print(f"Warning: No features extracted for {name}")
                     
             except Exception as e:
-                print(f"Error extracting features for {name}: {e}")
+                print(f"Error creating feature vector for {name}: {e}")
                 continue
         
         self.manuscript_features = features_data
@@ -304,6 +316,74 @@ class MultipleManuscriptComparison:
             f.write("Analysis completed successfully.\n")
         
         return output_file
+
+    def run_complete_analysis_from_texts(self,
+                                       manuscript_texts: List[str],
+                                       manuscript_names: Optional[List[str]] = None,
+                                       output_dir: str = "clustering_analysis") -> Dict:
+        """
+        Run complete analysis pipeline from text content.
+        
+        Args:
+            manuscript_texts: List of text content for each manuscript
+            manuscript_names: Optional list of manuscript names
+            output_dir: Directory to save results
+            
+        Returns:
+            Dictionary containing analysis results
+        """
+        print("Starting DETERMINISTIC NLP clustering analysis...")
+        print("All random states are fixed for reproducible results!")
+        
+        if manuscript_names is None:
+            manuscript_names = [f"Manuscript_{i+1}" for i in range(len(manuscript_texts))]
+        
+        print(f"Processing {len(manuscript_texts)} manuscripts...")
+        
+        # Preprocess texts directly
+        processed_manuscripts = {}
+        for text, name in tqdm(zip(manuscript_texts, manuscript_names), 
+                              desc="Preprocessing manuscripts", total=len(manuscript_texts)):
+            try:
+                preprocessed = self.preprocessor.preprocess(text)
+                
+                if self.use_advanced_nlp and self.advanced_processor:
+                    try:
+                        nlp_features = self.advanced_processor.process_document(
+                            preprocessed['normalized_text']
+                        )
+                        preprocessed['nlp_features'] = nlp_features
+                    except Exception as e:
+                        print(f"Warning: Advanced NLP processing failed for {name}: {e}")
+                        preprocessed['nlp_features'] = {}
+                else:
+                    preprocessed['nlp_features'] = {}
+                
+                processed_manuscripts[name] = preprocessed
+                
+            except Exception as e:
+                print(f"Error processing {name}: {e}")
+                continue
+        
+        # Continue with the rest of the analysis pipeline
+        features_data = self.extract_features(processed_manuscripts)
+        clustering_results = self.perform_clustering()
+        optimal_clustering = self.find_optimal_clustering()
+        visualizations = self.create_visualizations(optimal_clustering, output_dir)
+        report_file = self.generate_report(optimal_clustering, 
+                                         os.path.join(output_dir, "clustering_analysis_report.txt"))
+        
+        print(f"\nDETERMINISTIC analysis complete! Results saved to: {output_dir}")
+        print(f"Report: {report_file}")
+        
+        return {
+            'processed_manuscripts': processed_manuscripts,
+            'features': features_data,
+            'clustering_results': clustering_results,
+            'optimal_clustering': optimal_clustering,
+            'visualizations': visualizations,
+            'report_file': report_file
+        }
 
     def run_complete_analysis(self, 
                             manuscript_paths: List[str],

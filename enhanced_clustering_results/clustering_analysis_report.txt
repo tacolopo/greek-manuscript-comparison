@@ -1,0 +1,48 @@
+GREEK MANUSCRIPT CLUSTERING ANALYSIS REPORT
+==================================================
+
+ANALYSIS SUMMARY
+--------------------
+Total manuscripts analyzed: 27
+Optimal clustering algorithm: kmeans
+Optimal number of clusters: 4
+Silhouette score: 0.3374
+
+CLUSTER ASSIGNMENTS
+--------------------
+Cluster 0:
+  - Acts
+  - John
+  - Luke
+  - Mark
+  - Matthew
+
+Cluster 1:
+  - 1 Peter
+  - 2 John
+  - 2 Peter
+  - 3 John
+  - James
+  - Jude
+
+Cluster 2:
+  - Colossians
+  - Ephesians
+
+Cluster 3:
+  - 1 Corinthians
+  - 1 John
+  - 1 Thessalonians
+  - 1 Timothy
+  - 2 Corinthians
+  - 2 Thessalonians
+  - 2 Timothy
+  - Galatians
+  - Hebrews
+  - Philemon
+  - Philippians
+  - Revelation
+  - Romans
+  - Titus
+
+Analysis completed successfully.

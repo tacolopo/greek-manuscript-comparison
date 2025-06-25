@@ -34,6 +34,39 @@ class SimilarityCalculator:
         self.feature_names = []
         self.selected_features = []
         
+        # Store global vocabulary for consistent feature vectors
+        self.global_tfidf_vocab = set()
+        self.global_ngram_vocab = set()
+        
+    def build_global_vocabulary(self, all_features: List[Dict[str, Any]]):
+        """Build global vocabulary from all manuscripts for consistent feature vectors."""
+        print("Building global vocabulary for consistent features...")
+        
+        # Collect all TF-IDF features
+        for features in all_features:
+            if 'tfidf' in features:
+                tfidf_features = features['tfidf']
+                # Take top 50 TF-IDF features per document
+                sorted_tfidf = sorted(tfidf_features.items(), key=lambda x: x[1], reverse=True)[:50]
+                for key, _ in sorted_tfidf:
+                    self.global_tfidf_vocab.add(key)
+            
+            # Collect all n-gram features
+            for ngram_type in ['word_bigrams', 'word_trigrams']:
+                if ngram_type in features:
+                    ngram_features = features[ngram_type]
+                    # Take top 20 n-grams per document
+                    sorted_ngrams = sorted(ngram_features.items(), key=lambda x: x[1], reverse=True)[:20]
+                    for ngram, _ in sorted_ngrams:
+                        self.global_ngram_vocab.add(f'{ngram_type}_{str(ngram)[:20]}')
+        
+        print(f"Global TF-IDF vocabulary size: {len(self.global_tfidf_vocab)}")
+        print(f"Global n-gram vocabulary size: {len(self.global_ngram_vocab)}")
+        
+        # Convert to sorted lists for consistent ordering
+        self.global_tfidf_vocab = sorted(list(self.global_tfidf_vocab))
+        self.global_ngram_vocab = sorted(list(self.global_ngram_vocab))
+        
     def extract_nlp_features(self, features: Dict[str, Any]) -> np.ndarray:
         """
         Extract and flatten NLP features from manuscript features.
@@ -95,26 +128,31 @@ class SimilarityCalculator:
                     feature_vector.append(float(value))
                     feature_names.append(f'punct_{key}')
         
-        # Extract TF-IDF features (sample top features to avoid dimensionality explosion)
-        if 'tfidf' in features:
+        # Extract TF-IDF features using global vocabulary for consistency
+        if 'tfidf' in features and self.global_tfidf_vocab:
             tfidf_features = features['tfidf']
-            # Sort by value and take top features
-            sorted_tfidf = sorted(tfidf_features.items(), key=lambda x: x[1], reverse=True)[:50]
-            for key, value in sorted_tfidf:
+            for tfidf_term in self.global_tfidf_vocab:
+                value = tfidf_features.get(tfidf_term, 0.0)
+                feature_vector.append(float(value))
+                feature_names.append(f'tfidf_{tfidf_term}')
+        
+        # Extract n-gram features using global vocabulary for consistency
+        if self.global_ngram_vocab:
+            # Create a mapping of all n-gram features for this document
+            all_ngram_features = {}
+            for ngram_type in ['word_bigrams', 'word_trigrams']:
+                if ngram_type in features:
+                    ngram_features = features[ngram_type]
+                    for ngram, freq in ngram_features.items():
+                        key = f'{ngram_type}_{str(ngram)[:20]}'
+                        all_ngram_features[key] = freq
+            
+            # Use global vocabulary to ensure consistent feature vector size
+            for ngram_term in self.global_ngram_vocab:
+                value = all_ngram_features.get(ngram_term, 0.0)
                 if isinstance(value, (int, float)) and not np.isnan(value):
                     feature_vector.append(float(value))
-                    feature_names.append(f'tfidf_{key}')
-        
-        # Extract n-gram features (sample top features)
-        for ngram_type in ['word_bigrams', 'word_trigrams']:
-            if ngram_type in features:
-                ngram_features = features[ngram_type]
-                # Sort by frequency and take top features
-                sorted_ngrams = sorted(ngram_features.items(), key=lambda x: x[1], reverse=True)[:20]
-                for ngram, freq in sorted_ngrams:
-                    if isinstance(freq, (int, float)) and not np.isnan(freq):
-                        feature_vector.append(float(freq))
-                        feature_names.append(f'{ngram_type}_{str(ngram)[:20]}')  # Truncate long n-gram names
+                    feature_names.append(ngram_term)
         
         if not self.is_fitted:
             self.feature_names = feature_names
